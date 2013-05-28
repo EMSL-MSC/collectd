@@ -8,6 +8,7 @@
 %define with_ascent 0%{!?_without_ascent:1}
 %define with_battery 0%{!?_without_battery:1}
 %define with_bind 0%{!?_without_bind:1}
+%define with_cgroup 0%{!?_without_group:1}
 %define with_conntrack 0%{!?_without_conntrack:1}
 %define with_contextswitch 0%{!?_without_contextswitch:1}
 %define with_cpu 0%{!?_without_cpu:1}
@@ -176,6 +177,15 @@ BuildRequires:	libxml2-devel, curl-devel
 %description bind
 The BIND plugin retrieves this information that's encoded in XML and provided
 via HTTP and submits the values to collectd.
+%endif
+
+%if %{with_cgroup}
+%package cgroup
+Summary:	CGroup plugin for collectd
+Group:		System Environment/Daemons
+Requires:	%{name}%{?_isa} = %{version}-%{release}
+%description cgroup
+CGroup Plugin for collectd
 %endif
 
 %if %{with_curl}
@@ -635,6 +645,12 @@ Development files for libcollectdclient
 %define _with_bind --enable-bind
 %else
 %define _with_bind --disable-bind
+%endif
+
+%if %{with_cgroup}
+%define _with_cgroup --enable-cgroup
+%else
+%define _with_cgroup --disable-cgroup
 %endif
 
 %if %{with_conntrack}
@@ -1248,6 +1264,7 @@ Development files for libcollectdclient
 	%{?_with_ascent} \
 	%{?_with_battery} \
 	%{?_with_bind} \
+	%{?_with_cgroup} \
 	%{?_with_conntrack} \
 	%{?_with_contextswitch} \
 	%{?_with_cpu} \
@@ -1668,6 +1685,11 @@ fi
 %if %{with_bind}
 %files bind
 %{_libdir}/%{name}/bind.so
+%endif
+
+%if %{with_cgroup}
+%files cgroup
+%{_libdir}/%{name}/cgroup.so
 %endif
 
 %if %{with_curl}
