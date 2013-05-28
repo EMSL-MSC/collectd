@@ -1689,7 +1689,7 @@ fi
 
 %if %{with_cgroup}
 %files cgroup
-%{_libdir}/%{name}/cgroup.so
+%{_libdir}/%{name}/cgroups.so
 %endif
 
 %if %{with_curl}
