@@ -4205,8 +4205,8 @@ AM_CONDITIONAL(BUILD_WITH_LIBYAJL, test "x$with_libyajl" = "xyes")
 # }}}
 
 # --with-mic {{{
-with_mic_cflags="-I/opt/intel/mic/sysmgmt/sdk/include"
-with_mic_ldpath="-L/opt/intel/mic/sysmgmt/sdk/lib/Linux"
+with_mic_cflags="-I/usr/include/API/public"
+with_mic_ldpath="-L/usr/lib64"
 with_mic_libs=""
 AC_ARG_WITH(mic,[AS_HELP_STRING([--with-mic@<:@=PREFIX@:>@], [Path to Intel MIC Access API.])],
 [
