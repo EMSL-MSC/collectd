@@ -54,7 +54,6 @@ struct aggregation_s /* {{{ */
   _Bool calc_num;
   _Bool calc_sum;
   _Bool calc_average;
-  _Bool calc_rate;
   _Bool calc_min;
   _Bool calc_max;
   _Bool calc_stddev;
@@ -72,7 +71,6 @@ struct agg_instance_s /* {{{ */
 
   derive_t num;
   gauge_t sum;
-  gauge_t rate;
   gauge_t squares_sum;
 
   gauge_t min;
@@ -81,7 +79,6 @@ struct agg_instance_s /* {{{ */
   rate_to_value_state_t *state_num;
   rate_to_value_state_t *state_sum;
   rate_to_value_state_t *state_average;
-  rate_to_value_state_t *state_rate;
   rate_to_value_state_t *state_min;
   rate_to_value_state_t *state_max;
   rate_to_value_state_t *state_stddev;
@@ -139,7 +136,6 @@ static void agg_instance_destroy (agg_instance_t *inst) /* {{{ */
   sfree (inst->state_num);
   sfree (inst->state_sum);
   sfree (inst->state_average);
-  sfree (inst->state_rate);
   sfree (inst->state_min);
   sfree (inst->state_max);
   sfree (inst->state_stddev);
@@ -276,7 +272,6 @@ static agg_instance_t *agg_instance_create (data_set_t const *ds, /* {{{ */
   INIT_STATE (num);
   INIT_STATE (sum);
   INIT_STATE (average);
-  INIT_STATE (rate);
   INIT_STATE (min);
   INIT_STATE (max);
   INIT_STATE (stddev);
@@ -309,7 +304,6 @@ static int agg_instance_update (agg_instance_t *inst, /* {{{ */
   }
 
   rate = uc_get_rate (ds, vl);
-  INFO("Rate is(%s-%s): %f", ds->type,ds->ds->name,rate[0]);
   if (rate == NULL)
   {
     char ident[6 * DATA_MAX_NAME_LEN];
@@ -329,7 +323,6 @@ static int agg_instance_update (agg_instance_t *inst, /* {{{ */
 
   inst->num++;
   inst->sum += rate[0];
-  inst->rate += rate[0];
   inst->squares_sum += (rate[0] * rate[0]);
 
   if (isnan (inst->min) || (inst->min > rate[0]))
@@ -424,7 +417,6 @@ static int agg_instance_read (agg_instance_t *inst, cdtime_t t) /* {{{ */
   {
     READ_FUNC (sum, inst->sum);
     READ_FUNC (average, (inst->sum / ((gauge_t) inst->num)));
-    READ_FUNC (rate, inst->rate);
     READ_FUNC (min, inst->min);
     READ_FUNC (max, inst->max);
     READ_FUNC (stddev, sqrt((((gauge_t) inst->num) * inst->squares_sum)
@@ -434,7 +426,6 @@ static int agg_instance_read (agg_instance_t *inst, cdtime_t t) /* {{{ */
   /* Reset internal state. */
   inst->num = 0;
   inst->sum = 0.0;
-  inst->rate = 0.0;
   inst->squares_sum = 0.0;
   inst->min = NAN;
   inst->max = NAN;
@@ -488,7 +479,6 @@ static void agg_lookup_free_obj_callback (void *user_obj) /* {{{ */
  *     CalculateNum true
  *     CalculateSum true
  *     CalculateAverage true
- *     CalculateAverageRate true
  *     CalculateMinimum true
  *     CalculateMaximum true
  *     CalculateStddev true
@@ -589,8 +579,6 @@ static int agg_config_aggregation (oconfig_item_t *ci) /* {{{ */
       cf_util_get_boolean (child, &agg->calc_sum);
     else if (strcasecmp ("CalculateAverage", child->key) == 0)
       cf_util_get_boolean (child, &agg->calc_average);
-    else if (strcasecmp ("CalculateAverageRate", child->key) == 0)
-      cf_util_get_boolean (child, &agg->calc_rate);
     else if (strcasecmp ("CalculateMinimum", child->key) == 0)
       cf_util_get_boolean (child, &agg->calc_min);
     else if (strcasecmp ("CalculateMaximum", child->key) == 0)
