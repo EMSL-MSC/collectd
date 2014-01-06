@@ -994,6 +994,14 @@ collectd_LDADD += "-dlopen" protocols.la
 collectd_DEPENDENCIES += protocols.la
 endif
 
+if BUILD_PLUGIN_RATE
+pkglib_LTLIBRARIES += rate.la
+rate_la_SOURCES = rate.c
+rate_la_LDFLAGS = -module -avoid-version
+collectd_LDADD += "-dlopen" rate.la
+collectd_DEPENDENCIES += rate.la
+endif
+
 if BUILD_PLUGIN_REDIS
 pkglib_LTLIBRARIES += redis.la
 redis_la_SOURCES = redis.c
