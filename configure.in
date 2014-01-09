@@ -4245,7 +4245,7 @@ then
 	AC_CHECK_LIB(MicAccessSDK, MicInitAPI,
 			[with_mic_ldpath="$with_mic_ldpath"
 			with_mic_libs="$mic_default_libs"],
-			[with_mic="no (symbol MicInitAPI not found)"],[$mic_default_libs])
+			[with_mic="no (symbol MicInitAPI not found)"],[-lscif -lpthread])
 
 	CPPFLAGS="$SAVE_CPPFLAGS"
 	LDFLAGS="$SAVE_LDFLAGS"
