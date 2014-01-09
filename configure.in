@@ -4208,7 +4208,6 @@ AM_CONDITIONAL(BUILD_WITH_LIBYAJL, test "x$with_libyajl" = "xyes")
 with_mic_cflags="-I/opt/intel/mic/sysmgmt/sdk/include"
 with_mic_ldpath="-L/opt/intel/mic/sysmgmt/sdk/lib/Linux"
 with_mic_libs=""
-mic_default_libs="-lMicAccessSDK -lODMDebug -lscif -lpthread"
 AC_ARG_WITH(mic,[AS_HELP_STRING([--with-mic@<:@=PREFIX@:>@], [Path to Intel MIC Access API.])],
 [
 	if test "x$withval" = "xno"
@@ -4222,7 +4221,7 @@ AC_ARG_WITH(mic,[AS_HELP_STRING([--with-mic@<:@=PREFIX@:>@], [Path to Intel MIC 
 		AC_MSG_NOTICE([Not checking for Intel Mic: Manually configured])
 		with_mic_cflags="-I$withval/include"
 		with_mic_ldpath="-L$withval/lib/Linux"
-		with_mic_libs="$mic_default_libs"
+		with_mic_libs="-lMicAccessSDK -lODMDebug -lscif -lpthread"
 		with_mic="yes"
 	fi; fi; fi
 ],
@@ -4244,7 +4243,7 @@ then
 
 	AC_CHECK_LIB(MicAccessSDK, MicInitAPI,
 			[with_mic_ldpath="$with_mic_ldpath"
-			with_mic_libs="$mic_default_libs"],
+			with_mic_libs="-lMicAccessSDK -lscif -lpthread"],
 			[with_mic="no (symbol MicInitAPI not found)"],[-lscif -lpthread])
 
 	CPPFLAGS="$SAVE_CPPFLAGS"
