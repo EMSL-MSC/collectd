@@ -5101,6 +5101,7 @@ AC_PLUGIN([tail_csv],    [yes],                [Parsing of CSV files])
 AC_PLUGIN([tape],        [$plugin_tape],       [Tape drive statistics])
 AC_PLUGIN([target_notification], [yes],        [The notification target])
 AC_PLUGIN([target_replace], [yes],             [The replace target])
+AC_PLUGIN([target_rate], [yes],                [The rate target])
 AC_PLUGIN([target_scale],[yes],                [The scale target])
 AC_PLUGIN([target_set],  [yes],                [The set target])
 AC_PLUGIN([target_v5upgrade], [yes],           [The v5upgrade target])
@@ -5438,6 +5439,7 @@ Configuration:
     tape  . . . . . . . . $enable_tape
     target_notification . $enable_target_notification
     target_replace  . . . $enable_target_replace
+    target_rate   . . . . $enable_target_rate
     target_scale  . . . . $enable_target_scale
     target_set  . . . . . $enable_target_set
     target_v5upgrade  . . $enable_target_v5upgrade

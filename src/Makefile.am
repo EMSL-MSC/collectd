@@ -1153,6 +1153,14 @@ collectd_LDADD += "-dlopen" target_notification.la
 collectd_DEPENDENCIES += target_notification.la
 endif
 
+if BUILD_PLUGIN_TARGET_RATE
+pkglib_LTLIBRARIES += target_rate.la
+target_rate_la_SOURCES = target_rate.c
+target_rate_la_LDFLAGS = -module -avoid-version
+collectd_LDADD += "-dlopen" target_rate.la
+collectd_DEPENDENCIES += target_rate.la
+endif
+
 if BUILD_PLUGIN_TARGET_REPLACE
 pkglib_LTLIBRARIES += target_replace.la
 target_replace_la_SOURCES = target_replace.c
