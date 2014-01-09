@@ -4221,7 +4221,7 @@ AC_ARG_WITH(mic,[AS_HELP_STRING([--with-mic@<:@=PREFIX@:>@], [Path to Intel MIC 
 		AC_MSG_NOTICE([Not checking for Intel Mic: Manually configured])
 		with_mic_cflags="-I$withval/include"
 		with_mic_ldpath="-L$withval/lib/Linux"
-		with_mic_libs="-lMicAccessSDK -lODMDebug -lscif -lpthread"
+		with_mic_libs="-lMicAccessSDK -lscif -lpthread"
 		with_mic="yes"
 	fi; fi; fi
 ],
