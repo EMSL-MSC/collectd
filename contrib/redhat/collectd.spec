@@ -363,7 +363,6 @@ using the Intelligent Platform Management Interface (IPMI).
 Summary:	Infiniband plugin for collectd
 Group:		System Environment/Daemons
 Requires:	%{name}%{?_isa} = %{version}-%{release}
-BuildRequires:	
 %description infiniband
 The Infiniband data collection plugin.
 %endif
