@@ -1,6 +1,6 @@
 /**
  * collectd - src/common.c
- * Copyright (C) 2005-2010  Florian octo Forster
+ * Copyright (C) 2005-2014  Florian octo Forster
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -418,34 +418,36 @@ size_t strstripnewline (char *buffer)
 	return (buffer_len);
 } /* size_t strstripnewline */
 
-int escape_slashes (char *buf, int buf_len)
+int escape_slashes (char *buffer, size_t buffer_size)
 {
 	int i;
+	size_t buffer_len;
 
-	if (strcmp (buf, "/") == 0)
+	buffer_len = strlen (buffer);
+
+	if (buffer_len <= 1)
 	{
-		if (buf_len < 5)
-			return (-1);
-
-		strncpy (buf, "root", buf_len);
+		if (strcmp ("/", buffer) == 0)
+		{
+			if (buffer_size < 5)
+				return (-1);
+			sstrncpy (buffer, "root", buffer_size);
+		}
 		return (0);
 	}
-
-	if (buf_len <= 1)
-		return (0);
 
 	/* Move one to the left */
-	if (buf[0] == '/')
-		memmove (buf, buf + 1, buf_len - 1);
-
-	for (i = 0; i < buf_len - 1; i++)
+	if (buffer[0] == '/')
 	{
-		if (buf[i] == '\0')
-			break;
-		else if (buf[i] == '/')
-			buf[i] = '_';
+		memmove (buffer, buffer + 1, buffer_len);
+		buffer_len--;
 	}
-	buf[i] = '\0';
+
+	for (i = 0; i < buffer_len - 1; i++)
+	{
+		if (buffer[i] == '/')
+			buffer[i] = '_';
+	}
 
 	return (0);
 } /* int escape_slashes */
@@ -721,7 +723,7 @@ long long get_kstat_value (kstat_t *ksp, char *name)
 		retval = (long long) kn->value.ui64; /* XXX: Might overflow! */
 	else
 		WARNING ("get_kstat_value: Not a numeric value: %s", name);
-		 
+
 	return (retval);
 }
 #endif /* HAVE_LIBKSTAT */
@@ -828,36 +830,43 @@ int format_name (char *ret, int ret_len,
 		const char *plugin, const char *plugin_instance,
 		const char *type, const char *type_instance)
 {
-	int  status;
+  char *buffer;
+  size_t buffer_size;
 
-	assert (plugin != NULL);
-	assert (type != NULL);
+  buffer = ret;
+  buffer_size = (size_t) ret_len;
 
-	if ((plugin_instance == NULL) || (strlen (plugin_instance) == 0))
-	{
-		if ((type_instance == NULL) || (strlen (type_instance) == 0))
-			status = ssnprintf (ret, ret_len, "%s/%s/%s",
-					hostname, plugin, type);
-		else
-			status = ssnprintf (ret, ret_len, "%s/%s/%s-%s",
-					hostname, plugin, type,
-					type_instance);
-	}
-	else
-	{
-		if ((type_instance == NULL) || (strlen (type_instance) == 0))
-			status = ssnprintf (ret, ret_len, "%s/%s-%s/%s",
-					hostname, plugin, plugin_instance,
-					type);
-		else
-			status = ssnprintf (ret, ret_len, "%s/%s-%s/%s-%s",
-					hostname, plugin, plugin_instance,
-					type, type_instance);
-	}
+#define APPEND(str) do {                                               \
+  size_t l = strlen (str);                                             \
+  if (l >= buffer_size)                                                \
+    return (ENOBUFS);                                                  \
+  memcpy (buffer, (str), l);                                           \
+  buffer += l; buffer_size -= l;                                       \
+} while (0)
 
-	if ((status < 1) || (status >= ret_len))
-		return (-1);
-	return (0);
+  assert (plugin != NULL);
+  assert (type != NULL);
+
+  APPEND (hostname);
+  APPEND ("/");
+  APPEND (plugin);
+  if ((plugin_instance != NULL) && (plugin_instance[0] != 0))
+  {
+    APPEND ("-");
+    APPEND (plugin_instance);
+  }
+  APPEND ("/");
+  APPEND (type);
+  if ((type_instance != NULL) && (type_instance[0] != 0))
+  {
+    APPEND ("-");
+    APPEND (type_instance);
+  }
+  assert (buffer_size > 0);
+  buffer[0] = 0;
+
+#undef APPEND
+  return (0);
 } /* int format_name */
 
 int format_values (char *ret, size_t ret_len, /* {{{ */

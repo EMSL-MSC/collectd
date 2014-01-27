@@ -191,9 +191,19 @@ if BUILD_PLUGIN_APPLE_SENSORS
 pkglib_LTLIBRARIES += apple_sensors.la
 apple_sensors_la_SOURCES = apple_sensors.c
 apple_sensors_la_LDFLAGS = -module -avoid-version
-apple_sensors_la_LIBADD = -lIOKit
+apple_sensors_la_LDFLAGS += -framework IOKit
 collectd_LDADD += "-dlopen" apple_sensors.la
 collectd_DEPENDENCIES += apple_sensors.la
+endif
+
+if BUILD_PLUGIN_AQUAERO
+pkglib_LTLIBRARIES += aquaero.la
+aquaero_la_SOURCES = aquaero.c
+aquaero_la_LDFLAGS = -module -avoid-version
+aquaero_la_CFLAGS = $(AM_CFLAGS) $(BUILD_WITH_LIBAQUAERO5_CFLAGS)
+aquaero_la_LIBADD = $(BUILD_WITH_LIBAQUAERO5_LDFLAGS) -laquaero5
+collectd_LDADD += "-dlopen" aquaero.la
+collectd_DEPENDENCIES += aquaero.la
 endif
 
 if BUILD_PLUGIN_ASCENT
@@ -213,7 +223,7 @@ battery_la_SOURCES = battery.c
 battery_la_LDFLAGS = -module -avoid-version
 battery_la_LIBADD =
 if BUILD_WITH_LIBIOKIT
-battery_la_LIBADD += -lIOKit
+battery_la_LDFLAGS += -framework IOKit
 endif
 collectd_LDADD += "-dlopen" battery.la
 collectd_DEPENDENCIES += battery.la
@@ -369,7 +379,7 @@ if BUILD_WITH_LIBDEVINFO
 disk_la_LIBADD += -ldevinfo
 endif
 if BUILD_WITH_LIBIOKIT
-disk_la_LIBADD += -lIOKit
+disk_la_LDFLAGS += -framework IOKit
 endif
 if BUILD_WITH_LIBSTATGRAB
 disk_la_CFLAGS += $(BUILD_WITH_LIBSTATGRAB_CFLAGS)  
@@ -744,8 +754,8 @@ if BUILD_PLUGIN_NETLINK
 pkglib_LTLIBRARIES += netlink.la
 netlink_la_SOURCES = netlink.c
 netlink_la_LDFLAGS = -module -avoid-version
-netlink_la_CFLAGS = $(AM_CFLAGS) $(BUILD_WITH_LIBNETLINK_CFLAGS)
-netlink_la_LIBADD = $(BUILD_WITH_LIBNETLINK_LIBS)
+netlink_la_CFLAGS = $(AM_CFLAGS) $(BUILD_WITH_LIBMNL_CFLAGS)
+netlink_la_LIBADD = $(BUILD_WITH_LIBMNL_LIBS)
 collectd_LDADD += "-dlopen" netlink.la
 collectd_DEPENDENCIES += netlink.la
 endif
@@ -1060,6 +1070,16 @@ collectd_LDADD += "-dlopen" serial.la
 collectd_DEPENDENCIES += serial.la
 endif
 
+if BUILD_PLUGIN_SIGROK
+pkglib_LTLIBRARIES += sigrok.la
+sigrok_la_SOURCES = sigrok.c
+sigrok_la_CFLAGS = $(AM_CFLAGS) $(BUILD_WITH_LIBSIGROK_CFLAGS)
+sigrok_la_LDFLAGS = -module -avoid-version $(BUILD_WITH_LIBSIGROK_LDFLAGS)
+sigrok_la_LIBADD = -lsigrok
+collectd_LDADD += "-dlopen" sigrok.la
+collectd_DEPENDENCIES += sigrok.la
+endif
+
 if BUILD_PLUGIN_SNMP
 pkglib_LTLIBRARIES += snmp.la
 snmp_la_SOURCES = snmp.c
@@ -1075,6 +1095,16 @@ snmp_la_LIBADD += -lpthread
 endif
 collectd_LDADD += "-dlopen" snmp.la
 collectd_DEPENDENCIES += snmp.la
+endif
+
+if BUILD_PLUGIN_STATSD
+pkglib_LTLIBRARIES += statsd.la
+statsd_la_SOURCES = statsd.c \
+                    utils_latency.h utils_latency.c
+statsd_la_LDFLAGS = -module -avoid-version
+statsd_la_LIBADD = -lpthread
+collectd_LDADD += "-dlopen" statsd.la
+collectd_DEPENDENCIES += statsd.la
 endif
 
 if BUILD_PLUGIN_SWAP
@@ -1418,7 +1448,11 @@ pkglib_LTLIBRARIES += zfs_arc.la
 zfs_arc_la_SOURCES = zfs_arc.c
 zfs_arc_la_CFLAGS = $(AM_CFLAGS)
 zfs_arc_la_LDFLAGS = -module -avoid-version
+if BUILD_FREEBSD
+zfs_arc_la_LIBADD = -lm
+else
 zfs_arc_la_LIBADD = -lkstat
+endif
 collectd_LDADD += "-dlopen" zfs_arc.la
 collectd_DEPENDENCIES += zfs_arc.la
 endif
