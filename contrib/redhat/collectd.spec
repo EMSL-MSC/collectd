@@ -76,6 +76,7 @@
 %define with_gmond 0%{!?_without_gmond:0%{?_has_recent_libganglia}}
 %define with_hddtemp 0%{!?_without_hddtemp:1}
 %define with_interface 0%{!?_without_interface:1}
+%define with_infiniband 0%{!?_without_infiniband:1}
 %define with_ipmi 0%{!?_without_ipmi:1}
 %define with_iptables 0%{!?_without_iptables:0%{?_has_working_libiptc}}
 %define with_ipvs 0%{!?_without_ipvs:0%{?_has_ip_vs_h}}
@@ -112,6 +113,7 @@
 %define with_powerdns 0%{!?_without_powerdns:1}
 %define with_processes 0%{!?_without_processes:1}
 %define with_protocols 0%{!?_without_protocols:1}
+%define with_rate 0%{!?_without_rate:1}
 %define with_python 0%{!?_without_python:1}
 %define with_rrdtool 0%{!?_without_rrdtool:1}
 %define with_sensors 0%{!?_without_sensors:1}
@@ -356,6 +358,16 @@ The IPMI plugin uses the OpenIPMI library to read hardware sensors from servers
 using the Intelligent Platform Management Interface (IPMI).
 %endif
 
+%if %{with_infiniband}
+%package infiniband
+Summary:	Infiniband plugin for collectd
+Group:		System Environment/Daemons
+Requires:	%{name}%{?_isa} = %{version}-%{release}
+BuildRequires:	
+%description infiniband
+The Infiniband data collection plugin.
+%endif
+
 %if %{with_iptables}
 %package iptables
 Summary:	IPtables plugin for collectd
@@ -418,7 +430,7 @@ similar job, without requiring the installation of libmemcached.
 Summary:	mic plugin for collectd
 Group:		System Environment/Daemons
 Requires:	%{name}%{?_isa} = %{version}-%{release}
-BuildRequires:  intel-mic-sysmgmt, intel-mic-gpl
+BuildRequires:  libscif-dev, glibc2.12.2pkg-libmicaccesssdk-dev, glibc2.12.2pkg-libodmdebug-dev
 %description mic
 The mic plugin collects CPU usage, memory usage, temperatures and power
 consumption from Intel Many Integrated Core (MIC) CPUs.
@@ -885,6 +897,12 @@ Development files for libcollectdclient
 %define _with_interface --disable-interface
 %endif
 
+%if %{with_infiniband}
+%define _with_infiniband --enable-infiniband
+%else
+%define _with_infiniband --disable-infiniband
+%endif
+
 %if %{with_ipmi}
 %define _with_ipmi --enable-ipmi
 %else
@@ -1137,6 +1155,12 @@ Development files for libcollectdclient
 %define _with_protocols --disable-protocols
 %endif
 
+%if %{with_rate}
+%define _with_rate --enable-rate
+%else
+%define _with_rate --disable-rate
+%endif
+
 %if %{with_python}
 %if 0%{?rhel} >= 6
 %define _with_python --enable-python
@@ -1373,6 +1397,7 @@ Development files for libcollectdclient
 	--enable-match_timediff \
 	--enable-match_value \
 	--enable-target_notification \
+	--enable-target_rate \
 	--enable-target_replace \
 	--enable-target_scale \
 	--enable-target_set \
@@ -1408,6 +1433,7 @@ Development files for libcollectdclient
 	%{?_with_gmond} \
 	%{?_with_hddtemp} \
 	%{?_with_interface} \
+	%{?_with_infiniband} \
 	%{?_with_ipmi} \
 	%{?_with_iptables} \
 	%{?_with_ipvs} \
@@ -1467,6 +1493,7 @@ Development files for libcollectdclient
 	%{?_with_powerdns} \
 	%{?_with_processes} \
 	%{?_with_protocols} \
+	%{?_with_rate} \
 	%{?_with_serial} \
 	%{?_with_statsd} \
 	%{?_with_swap} \
@@ -1596,6 +1623,7 @@ fi
 %{_libdir}/%{name}/match_timediff.so
 %{_libdir}/%{name}/match_value.so
 %{_libdir}/%{name}/target_notification.so
+%{_libdir}/%{name}/target_rate.so
 %{_libdir}/%{name}/target_replace.so
 %{_libdir}/%{name}/target_scale.so
 %{_libdir}/%{name}/target_set.so
@@ -1651,6 +1679,9 @@ fi
 %endif
 %if %{with_interface}
 %{_libdir}/%{name}/interface.so
+%endif
+%if %{with_infiniband}
+%{_libdir}/%{name}/infiniband.so
 %endif
 %if %{with_ipvs}
 %{_libdir}/%{name}/ipvs.so
@@ -1711,6 +1742,9 @@ fi
 %endif
 %if %{with_protocols}
 %{_libdir}/%{name}/protocols.so
+%endif
+%if %{with_rate}
+%{_libdir}/%{name}/rate.so
 %endif
 %if %{with_serial}
 %{_libdir}/%{name}/serial.so
