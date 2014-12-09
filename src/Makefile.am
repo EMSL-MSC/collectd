@@ -374,16 +374,6 @@ hddtemp_la_LIBADD += -lsocket
 endif
 endif
 
-if BUILD_PLUGIN_INFINIBAND
-pkglib_LTLIBRARIES += infiniband.la
-infiniband_la_SOURCES = infiniband.c
-infiniband_la_CFLAGS  = $(AM_CFLAGS) $(BUILD_WITH_LIBHAL_CFLAGS)
-infiniband_la_LIBADD  = $(BUILD_WITH_LIBHAL_LIBS)
-infiniband_la_LDFLAGS = -module -avoid-version
-collectd_LDADD += "-dlopen" infiniband.la
-collectd_DEPENDENCIES += infiniband.la
-endif
-
 if BUILD_PLUGIN_INTERFACE
 pkglib_LTLIBRARIES += interface.la
 interface_la_SOURCES = interface.c \
@@ -422,6 +412,15 @@ ipmi_la_SOURCES = ipmi.c \
 ipmi_la_CFLAGS = $(AM_CFLAGS) $(BUILD_WITH_OPENIPMI_CFLAGS)
 ipmi_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 ipmi_la_LIBADD = $(BUILD_WITH_OPENIPMI_LIBS)
+endif
+
+if BUILD_PLUGIN_INFINIBAND
+pkglib_LTLIBRARIES += infiniband.la
+infiniband_la_SOURCES = infiniband.c \
+		 utils_ignorelist.c utils_ignorelist.h
+infiniband_la_CFLAGS  = $(AM_CFLAGS) $(BUILD_WITH_INFINIBAND_CPPFLAGS)
+infiniband_la_LIBADD  = $(BUILD_WITH_INFINIBAND_LDADD)
+infiniband_la_LDFLAGS = -module -avoid-version $(BUILD_WITH_INFINIBAND_LIBPATH)
 endif
 
 if BUILD_PLUGIN_IPVS

@@ -390,6 +390,17 @@ The HDDTemp plugin collects the temperature of hard disks. The temperatures are
 provided via SMART and queried by the external hddtemp daemon.
 %endif
 
+%if %{with_infiniband}
+%package infiniband
+Summary:	Infiniband plugin for collectd
+Group:		System Environment/Daemons
+Requires:	%{name}%{?_isa} = %{version}-%{release}
+BuildRequires:	libibmad-devel
+%description infiniband
+The Infiniband plugin reads the hardware counters from the local Infiniband
+Hardware Channel Adapters
+%endif
+
 %if %{with_ipmi}
 %package ipmi
 Summary:	IPMI plugin for collectd
@@ -2052,6 +2063,11 @@ fi
 %if %{with_hddtemp}
 %files hddtemp
 %{_libdir}/%{name}/hddtemp.so
+%endif
+
+%if %{with_infiniband}
+%files infiniband
+%{_libdir}/%{name}/infiniband.so
 %endif
 
 %if %{with_ipmi}
