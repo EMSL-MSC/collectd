@@ -24,17 +24,24 @@
 #include "common.h"
 #include "utils_llist.h"
 #include "utils_ignorelist.h"
+#define ntohll
+#define htonll
+#include <infiniband/mad.h>
+#include <infiniband/umad.h>
 
 #define SYSFSDIR "/sys/class/infiniband/"
 
 static const char *config_keys[] =
 {
 	"Ports",
-	"IgnoreSelectedPorts"
+	"IgnoreSelectedPorts",
+	"DisableCounterReset"
 };
 static int config_keys_num = STATIC_ARRAY_SIZE (config_keys);
 
 static ignorelist_t *ports_ignore = NULL;
+
+static _Bool disableCounterReset = 0;
 
 static int infiniband_config (const char *key, const char *value) {
 	if (ports_ignore == NULL)
@@ -52,6 +59,10 @@ static int infiniband_config (const char *key, const char *value) {
 		if (IS_TRUE(value))
 			invert = 1;
 		ignorelist_set_invert(ports_ignore,invert);
+	}
+	else if (strcasecmp("DisableCounterReset",key) == 0)
+	{
+		disableCounterReset = IS_TRUE(value);
 	}
 	else
 	{
@@ -80,6 +91,56 @@ static char *counterMap[][3] = {
 	{ "VL15_dropped", "ib_VL15_dropped", "value"},
 };
 
+static int resolve_self(char *ca_name, uint8_t ca_port, ib_portid_t *portid, int *portnum)
+{
+	umad_port_t port;
+	int rc;
+
+	if (!(portid || portnum))
+		return (-1);
+
+	if ((rc = umad_get_port(ca_name, ca_port, &port)) < 0)
+		return rc;
+
+	if (portid) {
+		memset(portid, 0, sizeof(*portid));
+		portid->lid = port.base_lid;
+		portid->sl = port.sm_sl;
+	}
+	if (portnum)
+		*portnum = port.portnum;
+
+	umad_release_port(&port);
+
+	return 0;
+}
+
+static void reset_counters(char *ibd_ca, int ibd_ca_port)
+{
+	uint8_t pc[1024];
+	ib_portid_t portid;
+	int mgmt_classes[] = { IB_SMI_CLASS, IB_SA_CLASS, IB_PERFORMANCE_CLASS };
+	int mask = 0xffff;
+	int timeout = 1000;
+	int port;
+	struct ibmad_port *srcport;
+
+	memset(&portid, 0, sizeof(portid));
+	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, sizeof(mgmt_classes)/sizeof(int));
+
+	if(resolve_self(ibd_ca, ibd_ca_port, &portid, &port) < 0)
+		ERROR("can't resolve self port %s:%d", ibd_ca, ibd_ca_port);
+
+	memset(pc, 0, sizeof(pc));
+	if(!performance_reset_via(pc, &portid, port, mask, timeout, IB_GSI_PORT_COUNTERS, srcport))
+		ERROR("error doing infiniband performance counter reset");
+	memset(pc, 0, sizeof(pc));
+	if(!performance_reset_via(pc, &portid, port, mask, timeout, IB_GSI_PORT_COUNTERS_EXT, srcport))
+		ERROR("error doing infiniband extended performance counter reset");
+
+	mad_rpc_close_port(srcport);
+}
+
 static int ib_walk_counters(const char *dir, const char *counter, void *typesList)
 {
 	char counterFileName[256];
@@ -96,7 +157,7 @@ static int ib_walk_counters(const char *dir, const char *counter, void *typesLis
 	strtok(counterValue, "\n");
 
 	value = (value_t *)malloc(sizeof(value_t));
-	if(parse_value(counterValue, value, DS_TYPE_COUNTER) == -1) {
+	if(parse_value(counterValue, value, DS_TYPE_ABSOLUTE) == -1) {
 		free(value);
 		return 2;
 	}
@@ -109,6 +170,10 @@ static int ib_walk_counters(const char *dir, const char *counter, void *typesLis
 			} else {
 				typeInstanceList = (llist_t *)cur->value;
 			}
+			// Infiniband transmitting and receiving counters are
+			// stored as octets/4.
+			if(! strcmp(counterMap[i][1], "ib_data"))
+				value->absolute <<= 2;
 			cur = llentry_create(counterMap[i][2], (void *)value);
 			llist_append(typeInstanceList, cur);
 			break;
@@ -156,6 +221,9 @@ static int ib_walk_ports(const char *dir, const char *port, void *adapter)
 			free(value);
 		}
 		plugin_dispatch_values(&vl);
+	}
+	if(! disableCounterReset) {
+		reset_counters((char *)adapter, strtol(port, NULL, 10));
 	}
 	return 0;
 }
