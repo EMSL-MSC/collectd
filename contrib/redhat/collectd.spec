@@ -412,15 +412,6 @@ The IPMI plugin uses the OpenIPMI library to read hardware sensors from servers
 using the Intelligent Platform Management Interface (IPMI).
 %endif
 
-%if %{with_infiniband}
-%package infiniband
-Summary:	Infiniband plugin for collectd
-Group:		System Environment/Daemons
-Requires:	%{name}%{?_isa} = %{version}-%{release}
-%description infiniband
-The Infiniband data collection plugin.
-%endif
-
 %if %{with_iptables}
 %package iptables
 Summary:	IPtables plugin for collectd
