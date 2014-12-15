@@ -4569,9 +4569,9 @@ AM_CONDITIONAL(BUILD_WITH_LIBYAJL, test "x$with_libyajl" = "xyes")
 # }}}
 
 # --with-infiniband {{{
-with_infiniband_cflags=""
-with_infiniband_ldpath=""
-with_infiniband_libs=""
+with_infiniband_cflags="-I/usr/include"
+with_infiniband_ldpath="-L/usr/lib64"
+with_infiniband_libs="-libmad -libumad"
 AC_ARG_WITH(infiniband,[AS_HELP_STRING([--with-infiniband@<:@=PREFIX@:>@], [Path to Infiniband mad libraries.])],
 [
 	if test "x$withval" = "xno"
@@ -4590,12 +4590,12 @@ AC_ARG_WITH(infiniband,[AS_HELP_STRING([--with-infiniband@<:@=PREFIX@:>@], [Path
 	fi; fi; fi
 ],
 [with_infiniband="yes"])
-if test "x$with_infiniband" = "xinfiniband"
+if test "x$with_infiniband" = "xyes"
 then
 	SAVE_CPPFLAGS="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS $with_infiniband_cflags"
-	AC_CHECK_HEADER(mad.h,[],[with_infiniband="no (mad.h not found)"])
-	AC_CHECK_HEADER(umad.h,[],[with_infiniband="no (umad.h not found)"])
+	AC_CHECK_HEADER(infiniband/mad.h,[],[with_infiniband="no (mad.h not found)"])
+	AC_CHECK_HEADER(infiniband/umad.h,[],[with_infiniband="no (umad.h not found)"])
 	CPPFLAGS="$SAVE_CPPFLAGS"
 fi
 if test "x$with_infiniband" = "xyes"
@@ -4609,12 +4609,12 @@ then
 	AC_CHECK_LIB(ibmad, mad_rpc_open_port,
 			[with_infiniband_ldpath="$with_infiniband_ldpath"
 			with_infiniband_libs="-libmad"],
-			[with_infiniband="no (symbol mad_rpc_open_port not found)"])
+			[with_infiniband="no (libibmad not found)"])
 
 	AC_CHECK_LIB(ibumad, umad_get_port,
 			[with_infiniband_ldpath="$with_infiniband_ldpath"
 			with_infiniband_libs+=" -libumad"],
-			[with_infiniband="no (symbol umad_get_port not found)"])
+			[with_infiniband="no (libibumad not found)"])
 
 	CPPFLAGS="$SAVE_CPPFLAGS"
 	LDFLAGS="$SAVE_LDFLAGS"
@@ -5558,7 +5558,7 @@ AC_PLUGIN([filecount],   [yes],                [Count files in directories])
 AC_PLUGIN([fscache],     [$plugin_fscache],    [fscache statistics])
 AC_PLUGIN([gmond],       [$with_libganglia],   [Ganglia plugin])
 AC_PLUGIN([hddtemp],     [yes],                [Query hddtempd])
-AC_PLUGIN([infiniband],  [yes],                [infiniband plugin])
+AC_PLUGIN([infiniband],  [$with_infiniband],   [infiniband plugin])
 AC_PLUGIN([interface],   [$plugin_interface],  [Interface traffic statistics])
 AC_PLUGIN([ipmi],        [$plugin_ipmi],       [IPMI sensor statistics])
 AC_PLUGIN([iptables],    [$with_libiptc],      [IPTables rule counters])
