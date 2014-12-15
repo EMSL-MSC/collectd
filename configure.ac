@@ -5191,7 +5191,6 @@ plugin_numa="no"
 plugin_perl="no"
 plugin_processes="no"
 plugin_protocols="no"
-plugin_rate="no"
 plugin_serial="no"
 plugin_swap="no"
 plugin_tape="no"
@@ -5229,7 +5228,6 @@ then
 	plugin_numa="yes"
 	plugin_processes="yes"
 	plugin_protocols="yes"
-	plugin_rate="yes"
 	plugin_serial="yes"
 	plugin_swap="yes"
 	plugin_tcpconns="yes"
@@ -5609,7 +5607,6 @@ AC_PLUGIN([postgresql],  [$with_libpq],        [PostgreSQL database statistics])
 AC_PLUGIN([powerdns],    [yes],                [PowerDNS statistics])
 AC_PLUGIN([processes],   [$plugin_processes],  [Process statistics])
 AC_PLUGIN([protocols],   [$plugin_protocols],  [Protocol (IP, TCP, ...) statistics])
-AC_PLUGIN([rate],        [$plugin_rate],       [Rate of change converter])
 AC_PLUGIN([python],      [$with_python],       [Embed a Python interpreter])
 AC_PLUGIN([redis],       [$with_libhiredis],    [Redis plugin])
 AC_PLUGIN([routeros],    [$with_librouteros],  [RouterOS plugin])

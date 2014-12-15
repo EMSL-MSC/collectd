@@ -847,12 +847,6 @@ protocols_la_SOURCES = protocols.c \
 protocols_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 endif
 
-if BUILD_PLUGIN_RATE
-pkglib_LTLIBRARIES += rate.la
-rate_la_SOURCES = rate.c
-rate_la_LDFLAGS = -module -avoid-version
-endif
-
 if BUILD_PLUGIN_REDIS
 pkglib_LTLIBRARIES += redis.la
 redis_la_SOURCES = redis.c
