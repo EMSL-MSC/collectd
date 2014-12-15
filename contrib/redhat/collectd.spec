@@ -216,7 +216,7 @@ Source:		http://collectd.org/files/%{name}-%{version}.tar.bz2
 License:	GPLv2
 Group:		System Environment/Daemons
 BuildRoot:	%{_tmppath}/%{name}-%{version}-root
-BuildRequires:	libgcrypt-devel, lvm2-devel, kernel-headers
+BuildRequires:	libgcrypt-devel, lvm2-devel, kernel-headers, libtool-ltdl-devel, glib2-devel
 Vendor:		collectd development team <collectd@verplant.org>
 
 Requires(post):		chkconfig
@@ -395,7 +395,7 @@ provided via SMART and queried by the external hddtemp daemon.
 Summary:	Infiniband plugin for collectd
 Group:		System Environment/Daemons
 Requires:	%{name}%{?_isa} = %{version}-%{release}
-BuildRequires:	libibmad-devel
+BuildRequires:	libibmad-devel, libibumad-devel
 %description infiniband
 The Infiniband plugin reads the hardware counters from the local Infiniband
 Hardware Channel Adapters
@@ -410,15 +410,6 @@ BuildRequires:	OpenIPMI-devel
 %description ipmi
 The IPMI plugin uses the OpenIPMI library to read hardware sensors from servers
 using the Intelligent Platform Management Interface (IPMI).
-%endif
-
-%if %{with_infiniband}
-%package infiniband
-Summary:	Infiniband plugin for collectd
-Group:		System Environment/Daemons
-Requires:	%{name}%{?_isa} = %{version}-%{release}
-%description infiniband
-The Infiniband data collection plugin.
 %endif
 
 %if %{with_iptables}
