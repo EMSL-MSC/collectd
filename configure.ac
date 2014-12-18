@@ -4632,10 +4632,10 @@ fi
 #}}}
 
 # --with-mic {{{
-with_mic_cflags="-I/usr/include/"
+with_mic_cflags="-I/usr/include/API/public"
 with_mic_ldpath="-L/usr/lib64"
 with_mic_libs=""
-mic_default_libs="-lmicmgmt "
+mic_default_libs="-lMicAccessSDK -lODMDebug -lscif -lpthread"
 AC_ARG_WITH(mic,[AS_HELP_STRING([--with-mic@<:@=PREFIX@:>@], [Path to Intel MIC Access API.])],
 [
 	if test "x$withval" = "xno"
@@ -4658,7 +4658,7 @@ if test "x$with_mic" = "xyes"
 then
 	SAVE_CPPFLAGS="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS $with_mic_cflags"
-	AC_CHECK_HEADERS(miclib.h,[],[with_mic="no (miclib.h not found)"])
+	AC_CHECK_HEADERS(MicAccessApi.h,[],[with_mic="no (MicAccessApi not found)"])
 	CPPFLAGS="$SAVE_CPPFLAGS"
 fi
 if test "x$with_mic" = "xyes"
@@ -4669,10 +4669,10 @@ then
 	CPPFLAGS="$CPPFLAGS $with_mic_cflags"
 	LDFLAGS="$LDFLAGS $with_mic_ldpath"
 
-	AC_CHECK_LIB(micmgmt, mic_get_devices,
+	AC_CHECK_LIB(MicAccessSDK, MicInitAPI,
 			[with_mic_ldpath="$with_mic_ldpath"
 			with_mic_libs="$mic_default_libs"],
-			[with_mic="no (symbol mic_get_devices not found)"],[$mic_default_libs])
+			[with_mic="no (symbol MicInitAPI not found)"],[$mic_default_libs])
 
 	CPPFLAGS="$SAVE_CPPFLAGS"
 	LDFLAGS="$SAVE_LDFLAGS"
