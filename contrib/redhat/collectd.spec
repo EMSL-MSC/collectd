@@ -135,7 +135,6 @@
 %define with_powerdns 0%{!?_without_powerdns:1}
 %define with_processes 0%{!?_without_processes:1}
 %define with_protocols 0%{!?_without_protocols:1}
-%define with_rate 0%{!?_without_rate:1}
 %define with_python 0%{!?_without_python:1}
 %define with_redis 0%{!?_without_redis:0%{?_has_hiredis}}
 %define with_rrdcached 0%{!?_without_rrdcached:0%{?_has_recent_librrd}}
@@ -1277,12 +1276,6 @@ Development files for libcollectdclient
 %define _with_protocols --disable-protocols
 %endif
 
-%if %{with_rate}
-%define _with_rate --enable-rate
-%else
-%define _with_rate --disable-rate
-%endif
-
 %if %{with_python}
 %if 0%{?rhel} >= 6
 %define _with_python --enable-python
@@ -1646,7 +1639,6 @@ Development files for libcollectdclient
 	%{?_with_powerdns} \
 	%{?_with_processes} \
 	%{?_with_protocols} \
-	%{?_with_rate} \
 	%{?_with_serial} \
 	%{?_with_statsd} \
 	%{?_with_swap} \
@@ -1896,9 +1888,6 @@ fi
 %endif
 %if %{with_protocols}
 %{_libdir}/%{name}/protocols.so
-%endif
-%if %{with_rate}
-%{_libdir}/%{name}/rate.so
 %endif
 %if %{with_serial}
 %{_libdir}/%{name}/serial.so
