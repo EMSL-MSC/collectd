@@ -346,8 +346,8 @@ similar job, without requiring the installation of libmemcached.
 %package mic
 Summary:	Intel Many Integrated Cores data plugin
 Group:		System Environment/Daemons
-Requires:	%{name}%{?_isa} = %{version}-%{release}
-BuildRequires:  libscif-dev, glibc2.12.2pkg-libmicaccesssdk-dev, glibc2.12.2pkg-libodmdebug-dev
+Requires:	%{name}%{?_isa} = %{version}-%{release}, glibc2.12.2pkg-libmicmgmt0
+BuildRequires:  glibc2.12.2pkg-libmicmgmt-dev
 %description mic
 The MIC plugin uses the Intel MicAccessAPI to gather processor, temperature
  and memory staistitcs from multiple MIC cards attached to a host
