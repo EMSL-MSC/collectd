@@ -474,7 +474,7 @@ similar job, without requiring the installation of libmemcached.
 Summary:	mic plugin for collectd
 Group:		System Environment/Daemons
 Requires:	%{name}%{?_isa} = %{version}-%{release}
-BuildRequires:  libscif-dev, glibc2.12.2pkg-libmicaccesssdk-dev, glibc2.12.2pkg-libodmdebug-dev
+BuildRequires:  glibc2.12.2pkg-libmicmgmt-dev
 %description mic
 The mic plugin collects CPU usage, memory usage, temperatures and power
 consumption from Intel Many Integrated Core (MIC) CPUs.
