@@ -197,6 +197,8 @@ static int ib_walk_ports(const char *dir, const char *port, void *adapter)
 
 	ssnprintf(counterDir, sizeof(counterDir), "%s/%s/counters", dir, (char *)port);
 	res = walk_directory(counterDir, ib_walk_counters, typesList, 0);
+	if(res != 0)
+		return res;
 
 	value_t values[2];
 	value_list_t vl = VALUE_LIST_INIT;
