@@ -122,7 +122,7 @@ static void reset_counters(char *ibd_ca, int ibd_ca_port)
 	int mgmt_classes[] = { IB_SMI_CLASS, IB_SA_CLASS, IB_PERFORMANCE_CLASS };
 	int mask = 0xffff;
 	int timeout = 1000;
-	int port;
+	int port = 0;
 	struct ibmad_port *srcport;
 
 	memset(&portid, 0, sizeof(portid));
