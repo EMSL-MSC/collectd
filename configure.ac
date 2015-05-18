@@ -5182,6 +5182,7 @@ plugin_interface="no"
 plugin_ipmi="no"
 plugin_ipvs="no"
 plugin_irq="no"
+plugin_llite="no"
 plugin_load="no"
 plugin_log_logstash="no"
 plugin_memory="no"
@@ -5221,6 +5222,7 @@ then
 	plugin_fscache="yes"
 	plugin_interface="yes"
 	plugin_irq="yes"
+	plugin_llite="yes"
 	plugin_load="yes"
 	plugin_lvm="yes"
 	plugin_memory="yes"
@@ -5563,6 +5565,7 @@ AC_PLUGIN([iptables],    [$with_libiptc],      [IPTables rule counters])
 AC_PLUGIN([ipvs],        [$plugin_ipvs],       [IPVS connection statistics])
 AC_PLUGIN([irq],         [$plugin_irq],        [IRQ statistics])
 AC_PLUGIN([java],        [$with_java],         [Embed the Java Virtual Machine])
+AC_PLUGIN([llite],       [$plugin_llite],      [Lustre client statistics])
 AC_PLUGIN([load],        [$plugin_load],       [System load])
 AC_PLUGIN([logfile],     [yes],                [File logging plugin])
 AC_PLUGIN([log_logstash], [$plugin_log_logstash], [Logstash json_event compatible logging])
@@ -5936,6 +5939,7 @@ Configuration:
     ipvs  . . . . . . . . $enable_ipvs
     irq . . . . . . . . . $enable_irq
     java  . . . . . . . . $enable_java
+    llite . . . . . . . . $enable_llite
     load  . . . . . . . . $enable_load
     logfile . . . . . . . $enable_logfile
     lpar  . . . . . . . . $enable_lpar

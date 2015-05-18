@@ -448,6 +448,13 @@ java_la_LDFLAGS = $(PLUGIN_LDFLAGS) $(JAVA_LDFLAGS)
 java_la_LIBADD = $(JAVA_LIBS)
 endif
 
+if BUILD_PLUGIN_LLITE
+pkglib_LTLIBRARIES += llite.la
+llite_la_SOURCES = llite.c \
+		 utils_ignorelist.c utils_ignorelist.h
+llite_la_LDFLAGS = $(PLUGIN_LDFLAGS)
+endif
+
 if BUILD_PLUGIN_LOAD
 pkglib_LTLIBRARIES += load.la
 load_la_SOURCES = load.c

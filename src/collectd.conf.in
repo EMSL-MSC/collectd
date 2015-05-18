@@ -127,6 +127,7 @@
 #@BUILD_PLUGIN_IPVS_TRUE@LoadPlugin ipvs
 #@BUILD_PLUGIN_IRQ_TRUE@LoadPlugin irq
 #@BUILD_PLUGIN_JAVA_TRUE@LoadPlugin java
+#@BUILD_PLUGIN_LLITE_TRUE@LoadPlugin llite
 @BUILD_PLUGIN_LOAD_TRUE@@BUILD_PLUGIN_LOAD_TRUE@LoadPlugin load
 #@BUILD_PLUGIN_LPAR_TRUE@LoadPlugin lpar
 #@BUILD_PLUGIN_LVM_TRUE@LoadPlugin lvm
@@ -571,6 +572,18 @@
 #	<Plugin "org.collectd.java.Foobar">
 #	  # To be parsed by the plugin
 #	</Plugin>
+#</Plugin>
+
+#<Plugin llite>
+##
+## directories under /proc/fs/lustre/llite/ usually look something like:
+##   myfilename-ffff88086d8d0400
+## Where the hex stuff after the "-" is different on each machine.  This module
+## looks at prefix up to the "-" from the /proc entry and compares that with
+## the names listed here.
+#
+#	Filesystem "dtemp"
+#	IgnoreSelected "false"
 #</Plugin>
 
 #<Plugin load>

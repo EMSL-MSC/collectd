@@ -2454,6 +2454,43 @@ independent from the I<JavaClass> argument passed to B<LoadPlugin>.
 
 =back
 
+=head2 Plugin C<llite>
+
+The I<llite plugin> collects filesystem information from the Lustre filesystem
+using the /proc filesystem.  Statistics for read write and metadata operations
+are collected.
+
+the following configuration options are available:
+
+=over 4
+
+=item B<Filesystem> I<fs_name>
+
+Mounted filesystems will have statistics presented through the proc filesystem
+under /proc/fs/lustre/llite
+
+The filesystem specific directory is usually named with a name based on the 
+server naming of the filesystem followed by a dash and a hex value which is
+not necessarily consistent across clients mounting the same filesystem.  For 
+example B<dtemp-ffff88086d8d0400>
+
+For the purposes of this plugin, we will truncate the name at the '-' when
+comparing against the list of filesystems listed in the configuration file.
+for the above filename I<dtemp> would be the appropriate configuration I<fs_name>
+
+Multiple filesystems may be listed, however, having the same filesystem mounted 
+at different mount points is not supported.
+
+If no filesystems are listed, the default action is to collect statistics for
+all Lustre filesystems currently listed in /proc/fs/lustre/llite
+
+=item B<IgnoreSelected> 
+
+By default the selected filesystems will be listed.  Setting this to I<true> will
+enable collection of all mounted filesystems except those listed
+
+=back
+
 =head2 Plugin C<load>
 
 The I<Load plugin> collects the system load. These numbers give a rough overview

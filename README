@@ -139,6 +139,9 @@ Features
       Integrates a `Java Virtual Machine' (JVM) to execute plugins in Java
       bytecode. See “Configuring with libjvm” below.
 
+    - llite
+      Lustre client statistics from /proc/fs/lustre/llite/*/stats
+
     - load
       System load average over the last 1, 5 and 15 minutes.
 
