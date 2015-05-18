@@ -2486,8 +2486,8 @@ all Lustre filesystems currently listed in /proc/fs/lustre/llite
 
 =item B<IgnoreSelected> 
 
-By default the selected filesystems will be listed.  Setting this to I<true> will
-enable collection of all mounted filesystems except those listed
+By default the selected filesystems will be excluded.  Setting this to I<false> will
+enable collection of only those filesystems listed.
 
 =back
 

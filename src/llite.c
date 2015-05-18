@@ -21,7 +21,7 @@ static ignorelist_t *llite_fs = NULL;
 static int llite_config (const char *key, const char *value){
 	plugin_log(LOG_INFO, "llite: Configuring with %s : %s", key, value);
 	if(llite_fs == NULL)
-		llite_fs = ignorelist_create(1);
+		llite_fs = ignorelist_create(0);
 	if(llite_fs == NULL)
 		return(1);
 
