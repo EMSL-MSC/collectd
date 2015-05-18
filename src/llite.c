@@ -5,7 +5,6 @@
 #include "common.h"
 #include "plugin.h"
 #include "utils_ignorelist.h"
-#include "utils_llist.h"
 
 #define LLITEDIR "/proc/fs/lustre/llite"
 
@@ -120,17 +119,10 @@ static int llite_read(void)
 	int status;
 	DIR *dir;
 	struct dirent *ent;
-	llist_t *fs_names = NULL;
 	char testDir[FILENAME_MAX];
 	char *chkdir;
 	char *saveptr;
 
-
-	fs_names = llist_create();
-	if (fs_names == NULL){
-		ERROR ("llite plugin: llist_create failed.");
-		return (-1);
-	}
 	if ((dir=opendir(LLITEDIR)) == NULL){
 		ERROR ("llite plugin: Can't open %s.",LLITEDIR);
 		return (-1);
