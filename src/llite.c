@@ -74,7 +74,7 @@ static int llite_process_fs(const char* fs,const char* name){
 		char *endptr = NULL;
 		unsigned long long value;
 
-		fields_num = strsplit(buffer, fields, STATIC_ARRAY_SIZE(fields));
+		fields_num=strsplit(buffer,fields,STATIC_ARRAY_SIZE(fields));
 
 		if (strcmp("snapshot_time", fields[0]) == 0){
 			continue;
@@ -131,24 +131,27 @@ static int llite_read(void)
 		ERROR ("llite plugin: llist_create failed.");
 		return (-1);
 	}
-	if ((dir=opendir(LLITEDIR)) != NULL){
-		while ((ent = readdir(dir)) != NULL){
-			if((strcmp(".", ent->d_name) == 0) ||
-			   (strcmp("..", ent->d_name)== 0))
+	if ((dir=opendir(LLITEDIR)) == NULL){
+		ERROR ("llite plugin: Can't open %s.",LLOTEDIR);
+		return (-1);
+	}
+	while ((ent = readdir(dir)) != NULL){
+		if((strcmp(".", ent->d_name) == 0) ||
+		   (strcmp("..", ent->d_name)== 0))
+			continue;
+		if(strncpy(testDir,ent->d_name,FILENAME_MAX) &&
+		   (chkdir = strtok_r(testDir,"-",&saveptr))){
+			if(ignorelist_match(llite_fs,chkdir))
 				continue;
-			if(strncpy(testDir,ent->d_name,FILENAME_MAX) &&
-			   (chkdir = strtok_r(testDir,"-",&saveptr))){
-				if(ignorelist_match(llite_fs,chkdir))
-					continue;
-				if((status=llite_process_fs(ent->d_name,chkdir)) != 0)
-					return(status);
-			}
-		}	
+			if((status=llite_process_fs(ent->d_name,chkdir)) != 0)
+				return(status);
+		}
 	}
 	return(0);
 }
 
 void module_register (void){
-	plugin_register_config("llite", llite_config, config_keys, config_keys_num);
+	plugin_register_config("llite", llite_config, 
+                               config_keys, config_keys_num);
 	plugin_register_read("llite", llite_read);
 }
