@@ -132,7 +132,7 @@ static int llite_read(void)
 		return (-1);
 	}
 	if ((dir=opendir(LLITEDIR)) == NULL){
-		ERROR ("llite plugin: Can't open %s.",LLOTEDIR);
+		ERROR ("llite plugin: Can't open %s.",LLITEDIR);
 		return (-1);
 	}
 	while ((ent = readdir(dir)) != NULL){
