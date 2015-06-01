@@ -102,6 +102,7 @@
 %define with_irq 0%{!?_without_irq:1}
 %define with_java 0%{!?_without_java:1}
 %define with_virt 0%{!?_without_virt:1}
+%define with_llite 0%{!?_without_llite:1}
 %define with_load 0%{!?_without_load:1}
 %define with_logfile 0%{!?_without_logfile:1}
 %define with_log_logstash 0%{!?_without_log_logstash:0%{?_has_libyajl}}
@@ -1048,6 +1049,12 @@ Development files for libcollectdclient
 %define _with_virt --disable-virt
 %endif
 
+%if %{with_llite}
+%define _with_llite --enable-llite
+%else
+%define _with_llite --disable-llite
+%endif
+
 %if %{with_load}
 %define _with_load --enable-load
 %else
@@ -1622,6 +1629,7 @@ Development files for libcollectdclient
 	%{?_with_zfs_arc} \
 	%{?_with_zookeeper} \
 	%{?_with_irq} \
+	%{?_with_llite} \
 	%{?_with_load} \
 	%{?_with_logfile} \
 	%{?_with_madwifi} \
@@ -1834,6 +1842,9 @@ fi
 %endif
 %if %{with_irq}
 %{_libdir}/%{name}/irq.so
+%endif
+%if %{with_llite}
+%{_libdir}/%{name}/llite.so
 %endif
 %if %{with_load}
 %{_libdir}/%{name}/load.so
