@@ -141,8 +141,8 @@ static void reset_counters(char *ibd_ca, int ibd_ca_port)
 	mad_rpc_close_port(srcport);
 }
 
-static void get_extended_counters(char *ibd_ca, int ibd_ca_port, uint64_t data_r, uint64_t data_t,
-	uint64_t packets_r, uint64_t packets_t)
+static int get_extended_counters(char *ibd_ca, int ibd_ca_port, uint64_t *data_r, uint64_t *data_t,
+	uint64_t *packets_r, uint64_t *packets_t)
 {
 	uint8_t pc[1024];
 	ib_portid_t portid;
@@ -154,24 +154,27 @@ static void get_extended_counters(char *ibd_ca, int ibd_ca_port, uint64_t data_r
 	memset(&portid, 0, sizeof(portid));
 	srcport = mad_rpc_open_port(ibd_ca, ibd_ca_port, mgmt_classes, sizeof(mgmt_classes)/sizeof(int));
 
-	if(resolve_self(ibd_ca, ibd_ca_port, &portid, &port) < 0)
+	if(resolve_self(ibd_ca, ibd_ca_port, &portid, &port) < 0) {
 		ERROR("can't resolve self port %s:%d", ibd_ca, ibd_ca_port);
+		return -1;
+	}
 
 	memset(pc, 0, sizeof(pc));
-	//if (!pma_query_via(pc, &portid, port, timeout, CLASS_PORT_INFO, srcport))
-                //ERROR("classportinfo query");
     //memcpy(&cap_mask, pc + 2, sizeof(cap_mask));    /* CapabilityMask */
     //if((cap_mask & IB_PM_EXT_WIDTH_SUPPORTED) || (cap_mask & IB_PM_EXT_WIDTH_NOIETF_SUP)) {
-        if (!pma_query_via(pc, &portid, port, timeout, IB_GSI_PORT_COUNTERS_EXT, srcport))
-        	ERROR("perfextquery");
-        mad_decode_field(pc, IB_PC_EXT_RCV_BYTES_F, &data_r);
-        mad_decode_field(pc, IB_PC_EXT_XMT_BYTES_F, &data_t);
-        mad_decode_field(pc, IB_PC_EXT_RCV_PKTS_F, &packets_r);
-        mad_decode_field(pc, IB_PC_EXT_XMT_PKTS_F, &packets_t);
+        if (!pma_query_via(pc, &portid, port, timeout, IB_GSI_PORT_COUNTERS_EXT, srcport)){
+		ERROR("perfextquery");
+		return -1;
+	}
+        mad_decode_field(pc, IB_PC_EXT_RCV_BYTES_F, data_r);
+        mad_decode_field(pc, IB_PC_EXT_XMT_BYTES_F, data_t);
+        mad_decode_field(pc, IB_PC_EXT_RCV_PKTS_F, packets_r);
+        mad_decode_field(pc, IB_PC_EXT_XMT_PKTS_F, packets_t);
     //}
 
 	mad_rpc_close_port(srcport);
 
+	return 0;
 }
 
 static int ib_walk_counters(const char *dir, const char *counter, void *typesList)
@@ -224,6 +227,7 @@ static int ib_walk_ports(const char *dir, const char *port, void *adapter)
 	int res;
 	value_t *value;
 	uint64_t data_r = 0, data_t = 0, packets_r = 0, packets_t = 0;
+	_Bool gotExtended = 0;
 
 
 	ssnprintf(portName, sizeof(portName), "%s:%s", (const char *)adapter, port);
@@ -235,8 +239,12 @@ static int ib_walk_ports(const char *dir, const char *port, void *adapter)
 	if(res != 0)
 		return res;
 
-	get_extended_counters((char *)adapter, strtol(port, NULL, 10),
-							data_r, data_t, packets_r, packets_t);
+	if( get_extended_counters((char *)adapter, strtol(port, NULL, 10),
+							&data_r, &data_t, &packets_r, &packets_t) == 0) {
+		gotExtended = 1;
+	} else {
+		gotExtended = 0;
+	}
 
 	value_t values[2];
 	value_list_t vl = VALUE_LIST_INIT;
@@ -259,16 +267,12 @@ static int ib_walk_ports(const char *dir, const char *port, void *adapter)
 			   they can roll too fast. Replace their values with the extended counters if
 			   available
 			*/
-			if(! strcmp(vl.type, "ib_data")) {
-				if(data_t)
-					values[0].counter = data_t;
-				if(data_r)
-					values[1].counter = data_r;
-			} else if (!strcmp(vl.type, "ib_packets")) {
-				if(packets_t)
-					values[0].counter = packets_t;
-				if(packets_r)
-					values[1].counter = packets_r;
+			if(gotExtended && ! strcmp(vl.type, "ib_data")) {
+				values[0].counter = data_t;
+				values[1].counter = data_r;
+			} else if (gotExtended && !strcmp(vl.type, "ib_packets")) {
+				values[0].counter = packets_t;
+				values[1].counter = packets_r;
 			}
 		} else {
 			value = (value_t *)llist_head(valEntry->value)->value;
