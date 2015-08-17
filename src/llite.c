@@ -160,6 +160,7 @@ static int llite_read(void)
 				return(status);
 		}
 	}
+	closedir(dir);
 	return(0);
 }
 
