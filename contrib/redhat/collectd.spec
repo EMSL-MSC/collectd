@@ -2014,7 +2014,6 @@ Collectd utilities
 	%{?_with_sigrok} \
 	%{?_with_smart} \
 	%{?_with_snmp} \
-<<<<<<< HEAD
 	%{?_with_tape} \
 	%{?_with_tokyotyrant} \
 	%{?_with_varnish} \

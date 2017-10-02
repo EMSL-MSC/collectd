@@ -244,7 +244,6 @@ static void mic_submit_cpu(int micnumber, const char *type_instance, int core,
 }
 
 /*Gather CPU Utilization Information */
-<<<<<<< HEAD
 static int mic_read_cpu(int mic) {
   struct mic_core_util *mcu;
   U32 ret;
@@ -340,7 +339,6 @@ static void mic_submit_power(int micnumber, const char *type,
 }
 
 /* Gather Power Information */
-<<<<<<< HEAD
 static int mic_read_power(int mic) {
   U32 ret;
   U32 value, valid;
