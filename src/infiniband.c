@@ -186,7 +186,7 @@ static int ib_walk_counters(const char *dir, const char *counter, void *typesLis
 	llist_t *typeInstanceList;
 	int i;
 
-	ssnprintf(counterFileName, sizeof(counterFileName), "%s/%s", dir, counter);
+	snprintf(counterFileName, sizeof(counterFileName), "%s/%s", dir, counter);
 	read_file_contents(counterFileName, counterValue, sizeof(counterValue));
 
 	//the counters seem to always pad binary data after the newline in the file
@@ -230,11 +230,11 @@ static int ib_walk_ports(const char *dir, const char *port, void *adapter)
 	_Bool gotExtended = 0;
 
 
-	ssnprintf(portName, sizeof(portName), "%s:%s", (const char *)adapter, port);
+	snprintf(portName, sizeof(portName), "%s:%s", (const char *)adapter, port);
 	if (ignorelist_match(ports_ignore, portName) != 0)
 		return 0;
 
-	ssnprintf(counterDir, sizeof(counterDir), "%s/%s/counters", dir, (char *)port);
+	snprintf(counterDir, sizeof(counterDir), "%s/%s/counters", dir, (char *)port);
 	res = walk_directory(counterDir, ib_walk_counters, typesList, 0);
 	if(res != 0)
 		return res;
@@ -252,7 +252,7 @@ static int ib_walk_ports(const char *dir, const char *port, void *adapter)
 
 	strncpy(vl.host, hostname_g, sizeof(vl.host));
 	strncpy(vl.plugin, "infiniband", sizeof(vl.plugin));
-	ssnprintf(vl.plugin_instance, sizeof(vl.plugin_instance), "%s:%s", (char *)adapter, port);
+	snprintf(vl.plugin_instance, sizeof(vl.plugin_instance), "%s:%s", (char *)adapter, port);
 	for(valEntry = llist_head(typesList); valEntry; valEntry = valEntry->next) {
 		strncpy(vl.type, valEntry->key, sizeof(vl.type));
 		vl.values_len = llist_size((llist_t *)valEntry->value);
@@ -290,7 +290,7 @@ static int ib_walk_ports(const char *dir, const char *port, void *adapter)
 static int ib_walk_adapters(const char *dir, const char *adapter, void *user_data)
 {
 	char portsDir[256];
-	ssnprintf(portsDir, sizeof(portsDir), "%s/%s/ports", dir, adapter);
+	snprintf(portsDir, sizeof(portsDir), "%s/%s/ports", dir, adapter);
 	return walk_directory(portsDir, ib_walk_ports, (void *)adapter, 0);
 }
 

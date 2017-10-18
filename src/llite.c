@@ -81,7 +81,7 @@ static int llite_process_fs(const char* fs,const char* name){
 	char fs_name[1024];
 	char bw[] = "total_bytes";
 	char ops[] = "operations";
-	ssnprintf(fs_name,sizeof(fs_name),"%s/%s/stats",LLITEDIR,fs);
+	snprintf(fs_name,sizeof(fs_name),"%s/%s/stats",LLITEDIR,fs);
 	stats = fopen(fs_name, "r");
 	if (stats == NULL){
 		ERROR("llite plugin: Can't open Lustre stats '%s'", fs_name);

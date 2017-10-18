@@ -922,6 +922,14 @@ intel_rdt_la_SOURCES = src/intel_rdt.c
 intel_rdt_la_CFLAGS = $(AM_CFLAGS) $(BUILD_WITH_LIBPQOS_CPPFLAGS)
 intel_rdt_la_LDFLAGS = $(PLUGIN_LDFLAGS) $(BUILD_WITH_LIBPQOS_LDFLAGS)
 intel_rdt_la_LIBADD = $(BUILD_WITH_LIBPQOS_LIBS)
+
+endif
+if BUILD_PLUGIN_INFINIBAND
+pkglib_LTLIBRARIES += infiniband.la
+infiniband_la_SOURCES = src/infiniband.c
+infiniband_la_CFLAGS = $(AM_CFLAGS) $(BUILD_WITH_INFINIBAND_CPPFLAGS)
+infiniband_la_LDFLAGS = $(PLUGIN_LDFLAGS) $(BUILD_WITH_INFINIBAND_LDFLAGS)
+infiniband_la_LIBADD = $(BUILD_WITH_INFINIBAND_LIBS)
 endif
 
 if BUILD_PLUGIN_INTERFACE
@@ -988,6 +996,15 @@ java_la_CPPFLAGS = $(AM_CPPFLAGS) $(JAVA_CPPFLAGS)
 java_la_CFLAGS = $(AM_CFLAGS) $(JAVA_CFLAGS)
 java_la_LDFLAGS = $(PLUGIN_LDFLAGS) $(JAVA_LDFLAGS)
 java_la_LIBADD = $(JAVA_LIBS)
+endif
+
+if BUILD_PLUGIN_LLITE
+pkglib_LTLIBRARIES += llite.la
+llite_la_SOURCES = src/llite.c
+llite_la_CPPFLAGS = $(AM_CPPFLAGS) $(LLITE_CPPFLAGS)
+llite_la_CFLAGS = $(AM_CFLAGS) $(LLITE_CFLAGS)
+llite_la_LDFLAGS = $(PLUGIN_LDFLAGS) $(LLITE_LDFLAGS)
+llite_la_LIBADD = $(LLITE_LIBS)
 endif
 
 if BUILD_PLUGIN_LOAD
@@ -1606,6 +1623,12 @@ if BUILD_PLUGIN_TARGET_NOTIFICATION
 pkglib_LTLIBRARIES += target_notification.la
 target_notification_la_SOURCES = src/target_notification.c
 target_notification_la_LDFLAGS = $(PLUGIN_LDFLAGS)
+endif
+
+if BUILD_PLUGIN_TARGET_RATE
+pkglib_LTLIBRARIES += target_rate.la
+target_rate_la_SOURCES = src/target_rate.c
+target_rate_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 endif
 
 if BUILD_PLUGIN_TARGET_REPLACE

@@ -2969,6 +2969,7 @@ AC_SUBST([JAVA_TIMESTAMP_FILE])
 AM_CONDITIONAL([BUILD_WITH_JAVA], [test "x$with_java" = "xyes"])
 # }}}
 
+
 # --with-libldap {{{
 AC_ARG_WITH([libldap],
   [AS_HELP_STRING([--with-libldap@<:@=PREFIX@:>@], [Path to libldap.])],
