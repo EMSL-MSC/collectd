@@ -6248,6 +6248,7 @@ if test "x$ac_system" = "xLinux"; then
   plugin_interface="yes"
   plugin_ipc="yes"
   plugin_irq="yes"
+  plugin_llite="yes"
   plugin_load="yes"
   plugin_lvm="yes"
   plugin_mcelog="yes"
