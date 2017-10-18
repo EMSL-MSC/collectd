@@ -2217,6 +2217,8 @@ fi
 %{_libdir}/%{name}/target_scale.so
 %{_libdir}/%{name}/target_set.so
 %{_libdir}/%{name}/target_v5upgrade.so
+#EJF probably someone should set this up properly.
+%{_libdir}/%{name}/synproxy.so
 
 %if %{with_aggregation}
 %{_libdir}/%{name}/aggregation.so
@@ -2436,6 +2438,9 @@ fi
 %{_includedir}/collectd/client.h
 %{_includedir}/collectd/network.h
 %{_includedir}/collectd/network_buffer.h
+%{_includedir}/collectd/network_parse.h
+%{_includedir}/collectd/server.h
+%{_includedir}/collectd/types.h
 %{_includedir}/collectd/lcc_features.h
 %{_libdir}/pkgconfig/libcollectdclient.pc
 %{_libdir}/libcollectdclient.so
