@@ -11,6 +11,9 @@ dnl we don't really need the 'u' even in older toolchains.  Then there is
 dnl older libtool, which spelled it AR_FLAGS
 m4_divert_text([DEFAULTS], [: "${ARFLAGS=cr} ${AR_FLAGS=cr}"])
 
+#not sure why this isnt in here: https://github.com/collectd/collectd/pull/2287
+m4_include([m4/ax_compare_version.m4])
+
 LT_INIT([dlopen disable-static])
 
 AM_INIT_AUTOMAKE([subdir-objects tar-pax dist-bzip2 no-dist-gzip foreign])
