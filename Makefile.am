@@ -929,7 +929,7 @@ pkglib_LTLIBRARIES += infiniband.la
 infiniband_la_SOURCES = src/infiniband.c
 infiniband_la_CFLAGS = $(AM_CFLAGS) $(BUILD_WITH_INFINIBAND_CPPFLAGS)
 infiniband_la_LDFLAGS = $(PLUGIN_LDFLAGS) $(BUILD_WITH_INFINIBAND_LDFLAGS)
-infiniband_la_LIBADD = $(BUILD_WITH_INFINIBAND_LIBS)
+infiniband_la_LIBADD = libignorelist.la $(BUILD_WITH_INFINIBAND_LDADD)
 endif
 
 if BUILD_PLUGIN_INTERFACE
