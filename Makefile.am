@@ -1001,10 +1001,8 @@ endif
 if BUILD_PLUGIN_LLITE
 pkglib_LTLIBRARIES += llite.la
 llite_la_SOURCES = src/llite.c
-llite_la_CPPFLAGS = $(AM_CPPFLAGS) $(LLITE_CPPFLAGS)
-llite_la_CFLAGS = $(AM_CFLAGS) $(LLITE_CFLAGS)
-llite_la_LDFLAGS = $(PLUGIN_LDFLAGS) $(LLITE_LDFLAGS)
-llite_la_LIBADD = $(LLITE_LIBS)
+llite_la_LDFLAGS = $(PLUGIN_LDFLAGS) 
+llite_la_LIBADD = libignorelist.la
 endif
 
 if BUILD_PLUGIN_LOAD
