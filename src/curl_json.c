@@ -226,11 +226,6 @@ static void cj_advance_array(cj_t *db) {
 #define CJ_CB_ABORT 0
 #define CJ_CB_CONTINUE 1
 
-static int cj_cb_boolean(void *ctx, int boolVal) {
-  cj_advance_array(ctx);
-  return CJ_CB_CONTINUE;
-}
-
 static int cj_cb_null(void *ctx) {
   cj_advance_array(ctx);
   return CJ_CB_CONTINUE;
@@ -291,6 +286,13 @@ static int cj_cb_string(void *ctx, const unsigned char *val, yajl_len_t len) {
   /* Handle the string as if it was a number. */
   return cj_cb_number(ctx, (const char *)val, len);
 } /* int cj_cb_string */
+
+static int cj_cb_boolean(void *ctx, int boolVal) {
+  if (boolVal)
+    return cj_cb_number(ctx, "1", 1);
+  else
+    return cj_cb_number(ctx, "0", 1);
+} /* int cj_cb_boolean */
 
 static int cj_cb_end(void *ctx) {
   cj_t *db = (cj_t *)ctx;
@@ -822,7 +824,6 @@ static void cj_submit_impl(cj_t *db, cj_key_t *key, value_t *value) /* {{{ */
 
 static int cj_sock_perform(cj_t *db) /* {{{ */
 {
-  char errbuf[1024];
   struct sockaddr_un sa_unix = {
       .sun_family = AF_UNIX,
   };
@@ -833,8 +834,7 @@ static int cj_sock_perform(cj_t *db) /* {{{ */
     return -1;
   if (connect(fd, (struct sockaddr *)&sa_unix, sizeof(sa_unix)) < 0) {
     ERROR("curl_json plugin: connect(%s) failed: %s",
-          (db->sock != NULL) ? db->sock : "<null>",
-          sstrerror(errno, errbuf, sizeof(errbuf)));
+          (db->sock != NULL) ? db->sock : "<null>", STRERRNO);
     close(fd);
     return -1;
   }
@@ -845,8 +845,7 @@ static int cj_sock_perform(cj_t *db) /* {{{ */
     red = read(fd, buffer, sizeof(buffer));
     if (red < 0) {
       ERROR("curl_json plugin: read(%s) failed: %s",
-            (db->sock != NULL) ? db->sock : "<null>",
-            sstrerror(errno, errbuf, sizeof(errbuf)));
+            (db->sock != NULL) ? db->sock : "<null>", STRERRNO);
       close(fd);
       return -1;
     }

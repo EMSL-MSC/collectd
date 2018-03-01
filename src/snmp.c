@@ -63,7 +63,7 @@ struct data_definition_s {
   struct data_definition_s *next;
   char **ignores;
   size_t ignores_len;
-  int invert_match;
+  _Bool invert_match;
 };
 typedef struct data_definition_s data_definition_t;
 
@@ -71,6 +71,8 @@ struct host_definition_s {
   char *name;
   char *address;
   int version;
+  cdtime_t timeout;
+  int retries;
 
   /* snmpv1/2 options */
   char *community;
@@ -327,29 +329,14 @@ static int csnmp_config_add_data_blacklist(data_definition_t *dd,
   return 0;
 } /* int csnmp_config_add_data_blacklist */
 
-static int csnmp_config_add_data_blacklist_match_inverted(data_definition_t *dd,
-                                                          oconfig_item_t *ci) {
-  if ((ci->values_num != 1) || (ci->values[0].type != OCONFIG_TYPE_BOOLEAN)) {
-    WARNING("snmp plugin: `InvertMatch' needs exactly one boolean argument.");
-    return -1;
-  }
-
-  dd->invert_match = ci->values[0].value.boolean ? 1 : 0;
-
-  return 0;
-} /* int csnmp_config_add_data_blacklist_match_inverted */
-
 static int csnmp_config_add_data(oconfig_item_t *ci) {
-  data_definition_t *dd;
-  int status = 0;
-
-  dd = calloc(1, sizeof(*dd));
+  data_definition_t *dd = calloc(1, sizeof(*dd));
   if (dd == NULL)
     return -1;
 
-  status = cf_util_get_string(ci, &dd->name);
+  int status = cf_util_get_string(ci, &dd->name);
   if (status != 0) {
-    free(dd);
+    sfree(dd);
     return -1;
   }
 
@@ -376,7 +363,7 @@ static int csnmp_config_add_data(oconfig_item_t *ci) {
     else if (strcasecmp("Ignore", option->key) == 0)
       status = csnmp_config_add_data_blacklist(dd, option);
     else if (strcasecmp("InvertMatch", option->key) == 0)
-      status = csnmp_config_add_data_blacklist_match_inverted(dd, option);
+      status = cf_util_get_boolean(option, &dd->invert_match);
     else {
       WARNING("snmp plugin: Option `%s' not allowed here.", option->key);
       status = -1;
@@ -411,7 +398,7 @@ static int csnmp_config_add_data(oconfig_item_t *ci) {
   }
 
   DEBUG("snmp plugin: dd = { name = %s, type = %s, is_table = %s, values_len = "
-        "%zu }",
+        "%" PRIsz " }",
         dd->name, dd->type, (dd->is_table != 0) ? "true" : "false",
         dd->values_len);
 
@@ -597,6 +584,10 @@ static int csnmp_config_add_host(oconfig_item_t *ci) {
   hd->sess_handle = NULL;
   hd->interval = 0;
 
+  /* These mean that we have not set a timeout or retry value */
+  hd->timeout = 0;
+  hd->retries = -1;
+
   for (int i = 0; i < ci->children_num; i++) {
     oconfig_item_t *option = ci->children + i;
     status = 0;
@@ -607,6 +598,10 @@ static int csnmp_config_add_host(oconfig_item_t *ci) {
       status = cf_util_get_string(option, &hd->community);
     else if (strcasecmp("Version", option->key) == 0)
       status = csnmp_config_add_host_version(hd, option);
+    else if (strcasecmp("Timeout", option->key) == 0)
+      cf_util_get_cdtime(option, &hd->timeout);
+    else if (strcasecmp("Retries", option->key) == 0)
+      cf_util_get_int(option, &hd->retries);
     else if (strcasecmp("Collect", option->key) == 0)
       csnmp_config_add_host_collect(hd, option);
     else if (strcasecmp("Interval", option->key) == 0)
@@ -801,6 +796,15 @@ static void csnmp_host_open_session(host_definition_t *host) {
   {
     sess.community = (u_char *)host->community;
     sess.community_len = strlen(host->community);
+  }
+
+  /* Set timeout & retries, if they have been changed from the default */
+  if (host->timeout != 0) {
+    /* net-snmp expects microseconds */
+    sess.timeout = CDTIME_T_TO_US(host->timeout);
+  }
+  if (host->retries >= 0) {
+    sess.retries = host->retries;
   }
 
   /* snmp_sess_open will copy the `struct snmp_session *'. */
@@ -1032,7 +1036,6 @@ static int csnmp_instance_list_add(csnmp_list_instances_t **head,
   struct variable_list *vb;
   oid_t vb_name;
   int status;
-  uint32_t is_matched;
 
   /* Set vb on the last variable */
   for (vb = res->variables; (vb != NULL) && (vb->next_variable != NULL);
@@ -1062,11 +1065,11 @@ static int csnmp_instance_list_add(csnmp_list_instances_t **head,
     char *ptr;
 
     csnmp_strvbcopy(il->instance, vb, sizeof(il->instance));
-    is_matched = 0;
+    _Bool is_matched = 0;
     for (uint32_t i = 0; i < dd->ignores_len; i++) {
       status = fnmatch(dd->ignores[i], il->instance, 0);
       if (status == 0) {
-        if (dd->invert_match == 0) {
+        if (!dd->invert_match) {
           sfree(il);
           return 0;
         } else {
@@ -1075,7 +1078,7 @@ static int csnmp_instance_list_add(csnmp_list_instances_t **head,
         }
       }
     }
-    if (dd->invert_match != 0 && is_matched == 0) {
+    if (dd->invert_match && !is_matched) {
       sfree(il);
       return 0;
     }
@@ -1090,7 +1093,8 @@ static int csnmp_instance_list_add(csnmp_list_instances_t **head,
     value_t val = csnmp_value_list_to_value(
         vb, DS_TYPE_COUNTER,
         /* scale = */ 1.0, /* shift = */ 0.0, hd->name, dd->name);
-    snprintf(il->instance, sizeof(il->instance), "%llu", val.counter);
+    snprintf(il->instance, sizeof(il->instance), "%" PRIu64,
+             (uint64_t)val.counter);
   }
 
   /* TODO: Debugging output */
@@ -1293,8 +1297,9 @@ static int csnmp_read_table(host_definition_t *host, data_definition_t *data) {
   }
 
   if (ds->ds_num != data->values_len) {
-    ERROR("snmp plugin: DataSet `%s' requires %zu values, but config talks "
-          "about %zu",
+    ERROR("snmp plugin: DataSet `%s' requires %" PRIsz
+          " values, but config talks "
+          "about %" PRIsz,
           data->type, ds->ds_num, data->values_len);
     return -1;
   }
@@ -1429,8 +1434,12 @@ static int csnmp_read_table(host_definition_t *host, data_definition_t *data) {
     for (vb = res->variables, i = 0; (vb != NULL);
          vb = vb->next_variable, i++) {
       /* Calculate value index from todo list */
-      while ((i < oid_list_len) && !oid_list_todo[i])
+      while ((i < oid_list_len) && !oid_list_todo[i]) {
         i++;
+      }
+      if (i >= oid_list_len) {
+        break;
+      }
 
       /* An instance is configured and the res variable we process is the
        * instance value (last index) */
@@ -1467,7 +1476,7 @@ static int csnmp_read_table(host_definition_t *host, data_definition_t *data) {
          * suffix is increasing. This also checks if we left the subtree */
         ret = csnmp_oid_suffix(&suffix, &vb_name, data->values + i);
         if (ret != 0) {
-          DEBUG("snmp plugin: host = %s; data = %s; i = %zu; "
+          DEBUG("snmp plugin: host = %s; data = %s; i = %" PRIsz "; "
                 "Value probably left its subtree.",
                 host->name, data->name, i);
           oid_list_todo[i] = 0;
@@ -1479,7 +1488,7 @@ static int csnmp_read_table(host_definition_t *host, data_definition_t *data) {
          * table matching algorithm will get confused. */
         if ((value_list_tail[i] != NULL) &&
             (csnmp_oid_compare(&suffix, &value_list_tail[i]->suffix) <= 0)) {
-          DEBUG("snmp plugin: host = %s; data = %s; i = %zu; "
+          DEBUG("snmp plugin: host = %s; data = %s; i = %" PRIsz "; "
                 "Suffix is not increasing.",
                 host->name, data->name, i);
           oid_list_todo[i] = 0;
@@ -1520,7 +1529,6 @@ static int csnmp_read_table(host_definition_t *host, data_definition_t *data) {
   if (res != NULL)
     snmp_free_pdu(res);
   res = NULL;
-
 
   if (status == 0)
     csnmp_dispatch_table(host, data, instance_list_head, value_list_head);
@@ -1572,8 +1580,9 @@ static int csnmp_read_value(host_definition_t *host, data_definition_t *data) {
   }
 
   if (ds->ds_num != data->values_len) {
-    ERROR("snmp plugin: DataSet `%s' requires %zu values, but config talks "
-          "about %zu",
+    ERROR("snmp plugin: DataSet `%s' requires %" PRIsz
+          " values, but config talks "
+          "about %" PRIsz,
           data->type, ds->ds_num, data->values_len);
     return -1;
   }

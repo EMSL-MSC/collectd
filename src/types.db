@@ -44,6 +44,7 @@ current                 value:GAUGE:U:U
 current_connections     value:GAUGE:0:U
 current_sessions        value:GAUGE:0:U
 delay                   value:GAUGE:-1000000:1000000
+delay_rate              value:GAUGE:0:U
 derive                  value:DERIVE:0:U
 df                      used:GAUGE:0:1125899906842623, free:GAUGE:0:1125899906842623
 df_complex              value:GAUGE:0:U
@@ -259,6 +260,7 @@ time_ref                value:GAUGE:0:U
 timeleft                value:GAUGE:0:U
 total_bytes             value:DERIVE:0:U
 total_connections       value:DERIVE:0:U
+total_events            value:DERIVE:0:U
 total_objects           value:DERIVE:0:U
 total_operations        value:DERIVE:0:U
 total_requests          value:DERIVE:0:U

@@ -468,6 +468,7 @@
 #<Plugin curl_xml>
 #  <URL "http://localhost/stats.xml">
 #    Host "my_host"
+#    #Plugin "stats"
 #    Instance "some_instance"
 #    User "collectd"
 #    Password "thaiNg0I"
@@ -482,6 +483,7 @@
 #      Type "magic_level"
 #      #InstancePrefix "prefix-"
 #      InstanceFrom "td[1]"
+#      #PluginInstanceFrom "td[1]"
 #      ValuesFrom "td[2]/span[@class=\"level\"]"
 #    </XPath>
 #  </URL>
@@ -561,6 +563,8 @@
 #    Coremask "0x2"
 #    MemoryChannels "4"
 #    FilePrefix "rte"
+#    LogLevel "7"
+#    RteDriverLibPath "/usr/lib/dpdk-pmd"
 #  </EAL>
 #  SharedMemObj "dpdk_collectd_stats_0"
 #  EnabledPortMask 0xffff
@@ -601,6 +605,7 @@
 #		Size "+10k"
 #		Recursive true
 #		IncludeHidden false
+#		RegularOnly true
 #		#FilesSizeType "bytes"
 #		#FilesCountType "files"
 #		#TypeInstance "instance"
@@ -640,6 +645,7 @@
 #		SSLCACertificateFile "/path/to/root.pem"
 #		SSLCertificateFile "/path/to/client.pem"
 #		SSLCertificateKeyFile "/path/to/client.key"
+#		VerifyPeer true
 #	</Listen>
 #</Plugin>
 
@@ -681,12 +687,33 @@
 #</Plugin>
 
 #<Plugin ipmi>
-#	Sensor "some_sensor"
-#	Sensor "another_one"
-#	IgnoreSelected false
-#	NotifySensorAdd false
-#	NotifySensorRemove true
-#	NotifySensorNotPresent false
+#	<Instance "local">
+#		Sensor "some_sensor"
+#		Sensor "another_one"
+#		IgnoreSelected false
+#		NotifySensorAdd false
+#		NotifySensorRemove true
+#		NotifySensorNotPresent false
+#		NotifyIPMIConnectionState false
+#		SELEnabled false
+#		SELClearEvent false
+#	</Instance>
+#	<Instance "remote">
+#		Host "server.example.com"
+#		Address  "1.2.3.4"
+#		Username "user"
+#		Password "secret"
+#		#AuthType "md5"
+#		Sensor "some_sensor"
+#		Sensor "another_one"
+#		IgnoreSelected false
+#		NotifySensorAdd false
+#		NotifySensorRemove true
+#		NotifySensorNotPresent false
+#		NotifyIPMIConnectionState false
+#		SELEnabled false
+#		SELClearEvent false
+#	</Instance>
 #</Plugin>
 
 #<Plugin iptables>
@@ -1164,7 +1191,7 @@
 #	<Database bar>
 #		Interval 60
 #		Service "service_name"
-#		Query backend # predefined
+#		Query backends # predefined
 #		Query rt36_tickets
 #	</Database>
 #	<Database qux>
@@ -1193,11 +1220,13 @@
 #	CollectFileDescriptor true
 #	CollectContextSwitch true
 #	CollectMemoryMaps true
+#	CollectDelayAccounting false
 #	Process "name"
 #	ProcessMatch "name" "regex"
 #	<Process "collectd">
 #		CollectFileDescriptor false
 #		CollectContextSwitch false
+#		CollectDelayAccounting true
 #	</Process>
 #	<ProcessMatch "name" "regex">
 #		CollectFileDescriptor false
@@ -1312,6 +1341,8 @@
 #       Community "community_string"
 #       Collect "std_traffic"
 #       Interval 120
+# 	Timeout 10
+#	Retries 1
 #   </Host>
 #   <Host "some.server.mydomain.org">
 #       Address "192.168.0.42"
@@ -1325,6 +1356,8 @@
 #       Community "more_communities"
 #       Collect "powerplus_voltge_input"
 #       Interval 300
+# 	Timeout 5
+#	Retries 5
 #   </Host>
 #</Plugin>
 
@@ -1575,6 +1608,7 @@
 #      CollectManagement false    # Varnish 4 only
 #      CollectSMF false           # Varnish 4 only
 #      CollectVBE false           # Varnish 4 only
+#      CollectMSE false           # Varnish-Plus 4 only
 #   </Instance>
 #</Plugin>
 
@@ -1631,6 +1665,7 @@
 #		Header "X-Custom-Header: custom_value"
 #		SSLVersion "TLSv1"
 #		Format "Command"
+#		Prefix "collectd"  # metric prefix, only available for KAIROSDB format
 #		Attribute "key" "value"     # only available for KAIROSDB format
 #		TTL 0   # data ttl, only available for KAIROSDB format
 #		Metrics true

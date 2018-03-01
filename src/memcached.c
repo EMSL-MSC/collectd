@@ -47,6 +47,17 @@
 #define MEMCACHED_CONNECT_TIMEOUT 10000
 #define MEMCACHED_IO_TIMEOUT 5000
 
+struct prev_s {
+  derive_t hits;
+  derive_t gets;
+  derive_t incr_hits;
+  derive_t incr_misses;
+  derive_t decr_hits;
+  derive_t decr_misses;
+};
+
+typedef struct prev_s prev_t;
+
 struct memcached_s {
   char *name;
   char *host;
@@ -54,6 +65,7 @@ struct memcached_s {
   char *connhost;
   char *connport;
   int fd;
+  prev_t prev;
 };
 typedef struct memcached_s memcached_t;
 
@@ -80,17 +92,15 @@ static void memcached_free(void *arg) {
 
 static int memcached_connect_unix(memcached_t *st) {
   struct sockaddr_un serv_addr = {0};
-  int fd;
 
   serv_addr.sun_family = AF_UNIX;
   sstrncpy(serv_addr.sun_path, st->socket, sizeof(serv_addr.sun_path));
 
   /* create our socket descriptor */
-  fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  int fd = socket(AF_UNIX, SOCK_STREAM, 0);
   if (fd < 0) {
-    char errbuf[1024];
     ERROR("memcached plugin: memcached_connect_unix: socket(2) failed: %s",
-          sstrerror(errno, errbuf, sizeof(errbuf)));
+          STRERRNO);
     return -1;
   }
 
@@ -115,21 +125,18 @@ static int memcached_connect_unix(memcached_t *st) {
 
 static int memcached_connect_inet(memcached_t *st) {
   struct addrinfo *ai_list;
-  int status;
   int fd = -1;
 
   struct addrinfo ai_hints = {.ai_family = AF_UNSPEC,
                               .ai_flags = AI_ADDRCONFIG,
                               .ai_socktype = SOCK_STREAM};
 
-  status = getaddrinfo(st->connhost, st->connport, &ai_hints, &ai_list);
+  int status = getaddrinfo(st->connhost, st->connport, &ai_hints, &ai_list);
   if (status != 0) {
-    char errbuf[1024];
     ERROR("memcached plugin: memcached_connect_inet: "
           "getaddrinfo(%s,%s) failed: %s",
           st->connhost, st->connport,
-          (status == EAI_SYSTEM) ? sstrerror(errno, errbuf, sizeof(errbuf))
-                                 : gai_strerror(status));
+          (status == EAI_SYSTEM) ? STRERRNO : gai_strerror(status));
     return -1;
   }
 
@@ -138,10 +145,9 @@ static int memcached_connect_inet(memcached_t *st) {
     /* create our socket descriptor */
     fd = socket(ai_ptr->ai_family, ai_ptr->ai_socktype, ai_ptr->ai_protocol);
     if (fd < 0) {
-      char errbuf[1024];
       WARNING("memcached plugin: memcached_connect_inet: "
               "socket(2) failed: %s",
-              sstrerror(errno, errbuf, sizeof(errbuf)));
+              STRERRNO);
       continue;
     }
 
@@ -236,9 +242,8 @@ static int memcached_query_daemon(char *buffer, size_t buffer_size,
 
   status = (int)swrite(st->fd, "stats\r\n", strlen("stats\r\n"));
   if (status != 0) {
-    char errbuf[1024];
     ERROR("memcached plugin: Instance \"%s\": write(2) failed: %s", st->name,
-          sstrerror(errno, errbuf, sizeof(errbuf)));
+          STRERRNO);
     shutdown(st->fd, SHUT_RDWR);
     close(st->fd);
     st->fd = -1;
@@ -270,14 +275,19 @@ static int memcached_query_daemon(char *buffer, size_t buffer_size,
 
     char const end_token[5] = {'E', 'N', 'D', '\r', '\n'};
     if (status < 0) {
-      char errbuf[1024];
 
       if ((errno == EAGAIN) || (errno == EWOULDBLOCK))
         continue;
 
       ERROR("memcached plugin: Instance \"%s\": Error reading from socket: %s",
-            st->name, sstrerror(errno, errbuf, sizeof(errbuf)));
+            st->name, STRERRNO);
       shutdown(st->fd, SHUT_RDWR);
+      close(st->fd);
+      st->fd = -1;
+      return -1;
+    } else if (status == 0) {
+      ERROR("memcached plugin: Instance \"%s\": Connection closed by peer",
+            st->name);
       close(st->fd);
       st->fd = -1;
       return -1;
@@ -380,29 +390,74 @@ static void submit_gauge2(const char *type, const char *type_inst,
   plugin_dispatch_values(&vl);
 }
 
+static gauge_t calculate_ratio_percent(derive_t part, derive_t total,
+                                       derive_t *prev_part,
+                                       derive_t *prev_total) {
+  if ((*prev_part == 0) || (*prev_total == 0) || (part < *prev_part) ||
+      (total < *prev_total)) {
+    *prev_part = part;
+    *prev_total = total;
+    return NAN;
+  }
+
+  derive_t num = part - *prev_part;
+  derive_t denom = total - *prev_total;
+
+  *prev_part = part;
+  *prev_total = total;
+
+  if (denom == 0)
+    return NAN;
+
+  if (num == 0)
+    return 0;
+
+  return 100.0 * (gauge_t)num / (gauge_t)denom;
+}
+
+static gauge_t calculate_ratio_percent2(derive_t part1, derive_t part2,
+                                        derive_t *prev1, derive_t *prev2) {
+  if ((*prev1 == 0) || (*prev2 == 0) || (part1 < *prev1) || (part2 < *prev2)) {
+    *prev1 = part1;
+    *prev2 = part2;
+    return NAN;
+  }
+
+  derive_t num = part1 - *prev1;
+  derive_t denom = part2 - *prev2 + num;
+
+  *prev1 = part1;
+  *prev2 = part2;
+
+  if (denom == 0)
+    return NAN;
+
+  if (num == 0)
+    return 0;
+
+  return 100.0 * (gauge_t)num / (gauge_t)denom;
+}
+
 static int memcached_read(user_data_t *user_data) {
   char buf[4096];
   char *fields[3];
-  char *ptr;
   char *line;
-  char *saveptr;
-  int fields_num;
 
-  gauge_t bytes_used = NAN;
-  gauge_t bytes_total = NAN;
-  gauge_t hits = NAN;
-  gauge_t gets = NAN;
-  gauge_t incr_hits = NAN;
-  derive_t incr = 0;
-  gauge_t decr_hits = NAN;
-  derive_t decr = 0;
+  derive_t bytes_used = 0;
+  derive_t bytes_total = 0;
+  derive_t get_hits = 0;
+  derive_t cmd_get = 0;
+  derive_t incr_hits = 0;
+  derive_t incr_misses = 0;
+  derive_t decr_hits = 0;
+  derive_t decr_misses = 0;
   derive_t rusage_user = 0;
   derive_t rusage_syst = 0;
   derive_t octets_rx = 0;
   derive_t octets_tx = 0;
 
-  memcached_t *st;
-  st = user_data->data;
+  memcached_t *st = user_data->data;
+  prev_t *prev = &st->prev;
 
   /* get data from daemon */
   if (memcached_query_daemon(buf, sizeof(buf), st) < 0) {
@@ -412,18 +467,15 @@ static int memcached_read(user_data_t *user_data) {
 #define FIELD_IS(cnst)                                                         \
   (((sizeof(cnst) - 1) == name_len) && (strcmp(cnst, fields[1]) == 0))
 
-  ptr = buf;
-  saveptr = NULL;
+  char *ptr = buf;
+  char *saveptr = NULL;
   while ((line = strtok_r(ptr, "\n\r", &saveptr)) != NULL) {
-    int name_len;
-
     ptr = NULL;
 
-    fields_num = strsplit(line, fields, 3);
-    if (fields_num != 3)
+    if (strsplit(line, fields, 3) != 3)
       continue;
 
-    name_len = strlen(fields[1]);
+    int name_len = strlen(fields[1]);
     if (name_len == 0)
       continue;
 
@@ -436,9 +488,10 @@ static int memcached_read(user_data_t *user_data) {
      * CPU time consumed by the memcached process
      */
     if (FIELD_IS("rusage_user")) {
-      rusage_user = atoll(fields[2]);
+      /* Convert to useconds */
+      rusage_user = atof(fields[2]) * 1000000;
     } else if (FIELD_IS("rusage_system")) {
-      rusage_syst = atoll(fields[2]);
+      rusage_syst = atof(fields[2]) * 1000000;
     }
 
     /*
@@ -459,9 +512,9 @@ static int memcached_read(user_data_t *user_data) {
      * Number of bytes used and available (total - used)
      */
     else if (FIELD_IS("bytes")) {
-      bytes_used = atof(fields[2]);
+      bytes_used = atoll(fields[2]);
     } else if (FIELD_IS("limit_maxbytes")) {
-      bytes_total = atof(fields[2]);
+      bytes_total = atoll(fields[2]);
     }
 
     /*
@@ -470,14 +523,14 @@ static int memcached_read(user_data_t *user_data) {
     else if (FIELD_IS("curr_connections")) {
       submit_gauge("memcached_connections", "current", atof(fields[2]), st);
     } else if (FIELD_IS("listen_disabled_num")) {
-      submit_derive("connections", "listen_disabled", atof(fields[2]), st);
+      submit_derive("total_events", "listen_disabled", atoll(fields[2]), st);
     }
     /*
      * Total number of connections opened since the server started running
      * Report this as connection rate.
      */
     else if (FIELD_IS("total_connections")) {
-      submit_derive("connections", "opened", atof(fields[2]), st);
+      submit_derive("connections", "opened", atoll(fields[2]), st);
     }
 
     /*
@@ -487,30 +540,24 @@ static int memcached_read(user_data_t *user_data) {
       const char *name = fields[1] + 4;
       submit_derive("memcached_command", name, atoll(fields[2]), st);
       if (strcmp(name, "get") == 0)
-        gets = atof(fields[2]);
+        cmd_get = atoll(fields[2]);
     }
 
     /*
      * Increment/Decrement
      */
     else if (FIELD_IS("incr_misses")) {
-      derive_t incr_count = atoll(fields[2]);
-      submit_derive("memcached_ops", "incr_misses", incr_count, st);
-      incr += incr_count;
+      incr_misses = atoll(fields[2]);
+      submit_derive("memcached_ops", "incr_misses", incr_misses, st);
     } else if (FIELD_IS("incr_hits")) {
-      derive_t incr_count = atoll(fields[2]);
-      submit_derive("memcached_ops", "incr_hits", incr_count, st);
-      incr_hits = atof(fields[2]);
-      incr += incr_count;
+      incr_hits = atoll(fields[2]);
+      submit_derive("memcached_ops", "incr_hits", incr_hits, st);
     } else if (FIELD_IS("decr_misses")) {
-      derive_t decr_count = atoll(fields[2]);
-      submit_derive("memcached_ops", "decr_misses", decr_count, st);
-      decr += decr_count;
+      decr_misses = atoll(fields[2]);
+      submit_derive("memcached_ops", "decr_misses", decr_misses, st);
     } else if (FIELD_IS("decr_hits")) {
-      derive_t decr_count = atoll(fields[2]);
-      submit_derive("memcached_ops", "decr_hits", decr_count, st);
-      decr_hits = atof(fields[2]);
-      decr += decr_count;
+      decr_hits = atoll(fields[2]);
+      submit_derive("memcached_ops", "decr_hits", decr_hits, st);
     }
 
     /*
@@ -520,8 +567,8 @@ static int memcached_read(user_data_t *user_data) {
      * - evictions
      */
     else if (FIELD_IS("get_hits")) {
-      submit_derive("memcached_ops", "hits", atoll(fields[2]), st);
-      hits = atof(fields[2]);
+      get_hits = atoll(fields[2]);
+      submit_derive("memcached_ops", "hits", get_hits, st);
     } else if (FIELD_IS("get_misses")) {
       submit_derive("memcached_ops", "misses", atoll(fields[2]), st);
     } else if (FIELD_IS("evictions")) {
@@ -542,7 +589,7 @@ static int memcached_read(user_data_t *user_data) {
     }
   } /* while ((line = strtok_r (ptr, "\n\r", &saveptr)) != NULL) */
 
-  if (!isnan(bytes_used) && !isnan(bytes_total) && (bytes_used <= bytes_total))
+  if ((bytes_total > 0) && (bytes_used <= bytes_total))
     submit_gauge2("df", "cache", bytes_used, bytes_total - bytes_used, st);
 
   if ((rusage_user != 0) || (rusage_syst != 0))
@@ -551,25 +598,24 @@ static int memcached_read(user_data_t *user_data) {
   if ((octets_rx != 0) || (octets_tx != 0))
     submit_derive2("memcached_octets", NULL, octets_rx, octets_tx, st);
 
-  if (!isnan(gets) && !isnan(hits)) {
-    gauge_t rate = NAN;
-
-    if (gets != 0.0)
-      rate = 100.0 * hits / gets;
-
-    submit_gauge("percent", "hitratio", rate, st);
+  if ((cmd_get != 0) && (get_hits != 0)) {
+    gauge_t ratio =
+        calculate_ratio_percent(get_hits, cmd_get, &prev->hits, &prev->gets);
+    submit_gauge("percent", "hitratio", ratio, st);
   }
 
-  if (!isnan(incr_hits) && incr != 0) {
-    gauge_t incr_rate = 100.0 * incr_hits / incr;
-    submit_gauge("percent", "incr_hitratio", incr_rate, st);
-    submit_derive("memcached_ops", "incr", incr, st);
+  if ((incr_hits != 0) && (incr_misses != 0)) {
+    gauge_t ratio = calculate_ratio_percent2(
+        incr_hits, incr_misses, &prev->incr_hits, &prev->incr_misses);
+    submit_gauge("percent", "incr_hitratio", ratio, st);
+    submit_derive("memcached_ops", "incr", incr_hits + incr_misses, st);
   }
 
-  if (!isnan(decr_hits) && decr != 0) {
-    gauge_t decr_rate = 100.0 * decr_hits / decr;
-    submit_gauge("percent", "decr_hitratio", decr_rate, st);
-    submit_derive("memcached_ops", "decr", decr, st);
+  if ((decr_hits != 0) && (decr_misses != 0)) {
+    gauge_t ratio = calculate_ratio_percent2(
+        decr_hits, decr_misses, &prev->decr_hits, &prev->decr_misses);
+    submit_gauge("percent", "decr_hitratio", ratio, st);
+    submit_derive("memcached_ops", "decr", decr_hits + decr_misses, st);
   }
 
   return 0;
@@ -612,6 +658,13 @@ static int memcached_set_defaults(memcached_t *st) {
   assert(st->connhost != NULL);
   assert(st->connport != NULL);
 
+  st->prev.hits = 0;
+  st->prev.gets = 0;
+  st->prev.incr_hits = 0;
+  st->prev.incr_misses = 0;
+  st->prev.decr_hits = 0;
+  st->prev.decr_misses = 0;
+
   return 0;
 } /* int memcached_set_defaults */
 
@@ -646,13 +699,12 @@ static int memcached_add_read_callback(memcached_t *st) {
  * </Plugin>
  */
 static int config_add_instance(oconfig_item_t *ci) {
-  memcached_t *st;
   int status = 0;
 
   /* Disable automatic generation of default instance in the init callback. */
   memcached_have_instances = 1;
 
-  st = calloc(1, sizeof(*st));
+  memcached_t *st = calloc(1, sizeof(*st));
   if (st == NULL) {
     ERROR("memcached plugin: calloc failed.");
     return ENOMEM;
@@ -727,14 +779,12 @@ static int memcached_config(oconfig_item_t *ci) {
 } /* int memcached_config */
 
 static int memcached_init(void) {
-  memcached_t *st;
-  int status;
 
   if (memcached_have_instances)
     return 0;
 
   /* No instances were configured, lets start a default instance. */
-  st = calloc(1, sizeof(*st));
+  memcached_t *st = calloc(1, sizeof(*st));
   if (st == NULL)
     return ENOMEM;
   st->name = NULL;
@@ -745,7 +795,7 @@ static int memcached_init(void) {
 
   st->fd = -1;
 
-  status = memcached_add_read_callback(st);
+  int status = memcached_add_read_callback(st);
   if (status == 0)
     memcached_have_instances = 1;
 
