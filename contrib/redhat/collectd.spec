@@ -2225,8 +2225,6 @@ fi
 %{_libdir}/%{name}/target_scale.so
 %{_libdir}/%{name}/target_set.so
 %{_libdir}/%{name}/target_v5upgrade.so
-#EJF probably someone should set this up properly.
-%{_libdir}/%{name}/synproxy.so
 
 %if %{with_aggregation}
 %{_libdir}/%{name}/aggregation.so
