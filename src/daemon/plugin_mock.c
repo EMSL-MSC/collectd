@@ -26,11 +26,15 @@
 
 #include "plugin.h"
 
+#if HAVE_KSTAT_H
+#include <kstat.h>
+#endif
+
 #if HAVE_LIBKSTAT
 kstat_ctl_t *kc = NULL;
 #endif /* HAVE_LIBKSTAT */
 
-char hostname_g[] = "example.com";
+char *hostname_g = "example.com";
 
 void plugin_set_dir(const char *dir) { /* nop */
 }

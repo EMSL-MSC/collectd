@@ -36,15 +36,14 @@
 /*
  * Private types
  */
-struct rrd_cache_s {
+typedef struct rrd_cache_s {
   int values_num;
   char **values;
   cdtime_t first_value;
   cdtime_t last_value;
   int64_t random_variation;
   enum { FLAG_NONE = 0x00, FLAG_QUEUED = 0x01, FLAG_FLUSHQ = 0x02 } flags;
-};
-typedef struct rrd_cache_s rrd_cache_t;
+} rrd_cache_t;
 
 enum rrd_queue_dir_e { QUEUE_INSERT_FRONT, QUEUE_INSERT_BACK };
 typedef enum rrd_queue_dir_e rrd_queue_dir_t;
@@ -110,13 +109,10 @@ static int do_shutdown = 0;
 #if HAVE_THREADSAFE_LIBRRD
 static int srrd_update(char *filename, char *template, int argc,
                        const char **argv) {
-  int status;
-
   optind = 0; /* bug in librrd? */
   rrd_clear_error();
 
-  status = rrd_update_r(filename, template, argc, (void *)argv);
-
+  int status = rrd_update_r(filename, template, argc, (void *)argv);
   if (status != 0) {
     WARNING("rrdtool plugin: rrd_update_r (%s) failed: %s", filename,
             rrd_get_error());
@@ -190,8 +186,8 @@ static int value_list_to_string_multiple(char *buffer, int buffer_len,
       return -1;
 
     if (ds->ds[i].type == DS_TYPE_COUNTER)
-      status = snprintf(buffer + offset, buffer_len - offset, ":%llu",
-                        vl->values[i].counter);
+      status = snprintf(buffer + offset, buffer_len - offset, ":%" PRIu64,
+                        (uint64_t)vl->values[i].counter);
     else if (ds->ds[i].type == DS_TYPE_GAUGE)
       status = snprintf(buffer + offset, buffer_len - offset, ":" GAUGE_FORMAT,
                         vl->values[i].gauge);
@@ -230,8 +226,8 @@ static int value_list_to_string(char *buffer, int buffer_len,
                       vl->values[0].gauge);
     break;
   case DS_TYPE_COUNTER:
-    status = snprintf(buffer, buffer_len, "%u:%llu", (unsigned)tt,
-                      vl->values[0].counter);
+    status = snprintf(buffer, buffer_len, "%u:%" PRIu64, (unsigned)tt,
+                      (uint64_t)vl->values[0].counter);
     break;
   case DS_TYPE_ABSOLUTE:
     status = snprintf(buffer, buffer_len, "%u:%" PRIu64, (unsigned)tt,
@@ -524,10 +520,7 @@ static void rrd_cache_flush(cdtime_t timeout) {
     {
       char **tmp = realloc(keys, (keys_num + 1) * sizeof(char *));
       if (tmp == NULL) {
-        char errbuf[1024];
-        ERROR("rrdtool plugin: "
-              "realloc failed: %s",
-              sstrerror(errno, errbuf, sizeof(errbuf)));
+        ERROR("rrdtool plugin: realloc failed: %s", STRERRNO);
         c_avl_iterator_destroy(iter);
         sfree(keys);
         return;
@@ -627,9 +620,8 @@ static int rrd_cache_insert(const char *filename, const char *value,
     return -1;
   }
 
-  c_avl_get(cache, filename, (void *)&rc);
-
-  if (rc == NULL) {
+  int status = c_avl_get(cache, filename, (void *)&rc);
+  if ((status != 0) || (rc == NULL)) {
     rc = malloc(sizeof(*rc));
     if (rc == NULL) {
       pthread_mutex_unlock(&cache_lock);
@@ -656,15 +648,12 @@ static int rrd_cache_insert(const char *filename, const char *value,
   values_new =
       realloc((void *)rc->values, (rc->values_num + 1) * sizeof(char *));
   if (values_new == NULL) {
-    char errbuf[1024];
     void *cache_key = NULL;
-
-    sstrerror(errno, errbuf, sizeof(errbuf));
 
     c_avl_remove(cache, filename, &cache_key, NULL);
     pthread_mutex_unlock(&cache_lock);
 
-    ERROR("rrdtool plugin: realloc failed: %s", errbuf);
+    ERROR("rrdtool plugin: realloc failed: %s", STRERRNO);
 
     sfree(cache_key);
     sfree(rc->values);
@@ -686,12 +675,9 @@ static int rrd_cache_insert(const char *filename, const char *value,
     void *cache_key = strdup(filename);
 
     if (cache_key == NULL) {
-      char errbuf[1024];
-      sstrerror(errno, errbuf, sizeof(errbuf));
-
       pthread_mutex_unlock(&cache_lock);
 
-      ERROR("rrdtool plugin: strdup failed: %s", errbuf);
+      ERROR("rrdtool plugin: strdup failed: %s", STRERRNO);
 
       sfree(rc->values[0]);
       sfree(rc->values);
@@ -794,10 +780,6 @@ static int rrd_compare_numeric(const void *a_ptr, const void *b_ptr) {
 
 static int rrd_write(const data_set_t *ds, const value_list_t *vl,
                      user_data_t __attribute__((unused)) * user_data) {
-  struct stat statbuf;
-  char filename[512];
-  char values[512];
-  int status;
 
   if (do_shutdown)
     return 0;
@@ -807,33 +789,32 @@ static int rrd_write(const data_set_t *ds, const value_list_t *vl,
     return -1;
   }
 
+  char filename[PATH_MAX];
   if (value_list_to_filename(filename, sizeof(filename), vl) != 0)
     return -1;
 
+  char values[32 * (ds->ds_num + 1)];
   if (value_list_to_string(values, sizeof(values), ds, vl) != 0)
     return -1;
 
+  struct stat statbuf = {0};
   if (stat(filename, &statbuf) == -1) {
     if (errno == ENOENT) {
-      status = cu_rrd_create_file(filename, ds, vl, &rrdcreate_config);
-      if (status != 0)
+      if (cu_rrd_create_file(filename, ds, vl, &rrdcreate_config) != 0) {
         return -1;
-      else if (rrdcreate_config.async)
+      } else if (rrdcreate_config.async) {
         return 0;
+      }
     } else {
-      char errbuf[1024];
-      ERROR("stat(%s) failed: %s", filename,
-            sstrerror(errno, errbuf, sizeof(errbuf)));
+      ERROR("rrdtool plugin: stat(%s) failed: %s", filename, STRERRNO);
       return -1;
     }
   } else if (!S_ISREG(statbuf.st_mode)) {
-    ERROR("stat(%s): Not a regular file!", filename);
+    ERROR("rrdtool plugin: stat(%s): Not a regular file!", filename);
     return -1;
   }
 
-  status = rrd_cache_insert(filename, values, vl->time);
-
-  return status;
+  return rrd_cache_insert(filename, values, vl->time);
 } /* int rrd_write */
 
 static int rrd_flush(cdtime_t timeout, const char *identifier,
@@ -1030,7 +1011,6 @@ static int rrd_shutdown(void) {
 
 static int rrd_init(void) {
   static int init_once = 0;
-  int status;
 
   if (init_once != 0)
     return 0;
@@ -1054,8 +1034,8 @@ static int rrd_init(void) {
     random_timeout = 0;
     cache_flush_timeout = 0;
   } else if (cache_flush_timeout < cache_timeout) {
-    INFO("rrdtool plugin: \"CacheFlush %.3f\" is less than \"CacheTimeout %.3f\". "
-         "Ajusting \"CacheFlush\" to %.3f seconds.",
+    INFO("rrdtool plugin: \"CacheFlush %.3f\" is less than \"CacheTimeout "
+         "%.3f\". Adjusting \"CacheFlush\" to %.3f seconds.",
          CDTIME_T_TO_DOUBLE(cache_flush_timeout),
          CDTIME_T_TO_DOUBLE(cache_timeout),
          CDTIME_T_TO_DOUBLE(cache_timeout * 10));
@@ -1071,7 +1051,7 @@ static int rrd_init(void) {
 
   pthread_mutex_unlock(&cache_lock);
 
-  status =
+  int status =
       plugin_thread_create(&queue_thread, /* attr = */ NULL, rrd_queue_thread,
                            /* args = */ NULL, "rrdtool queue");
   if (status != 0) {

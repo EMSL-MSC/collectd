@@ -261,12 +261,6 @@ struct {
                  {"Collectd::NOTIF_WARNING", NOTIF_WARNING},
                  {"Collectd::NOTIF_OKAY", NOTIF_OKAY},
                  {"", 0}};
-
-struct {
-  char name[64];
-  char *var;
-} g_strings[] = {{"Collectd::hostname_g", hostname_g}, {"", NULL}};
-
 /*
  * Helper functions for data type conversion.
  */
@@ -337,12 +331,12 @@ static size_t av2value(pTHX_ char *name, AV *array, value_t *value,
 
   if (array_len < ds->ds_num) {
     log_warn("av2value: array does not contain enough elements for type "
-             "\"%s\": got %zu, want %zu",
+             "\"%s\": got %" PRIsz ", want %" PRIsz,
              name, array_len, ds->ds_num);
     return 0;
   } else if (array_len > ds->ds_num) {
     log_warn("av2value: array contains excess elements for type \"%s\": got "
-             "%zu, want %zu",
+             "%" PRIsz ", want %" PRIsz,
              name, array_len, ds->ds_num);
   }
 
@@ -712,10 +706,8 @@ static int value_list2hv(pTHX_ value_list_t *vl, data_set_t *ds, HV *hash) {
 
 static int notification_meta2av(pTHX_ notification_meta_t *meta, AV *array) {
   int meta_num = 0;
-
-  while (meta) {
+  for (notification_meta_t *m = meta; m != NULL; m = m->next) {
     ++meta_num;
-    meta = meta->next;
   }
 
   av_extend(array, meta_num);
@@ -2099,7 +2091,7 @@ static int perl_init(void) {
   /* Lock the base thread to avoid race conditions with c_ithread_create().
    * See https://github.com/collectd/collectd/issues/9 and
    *     https://github.com/collectd/collectd/issues/1706 for details.
-  */
+   */
   assert(aTHX == perl_threads->head->interp);
   pthread_mutex_lock(&perl_threads->mutex);
 
@@ -2190,7 +2182,7 @@ static void perl_log(int level, const char *msg, user_data_t *user_data) {
   /* Lock the base thread if this is not called from one of the read threads
    * to avoid race conditions with c_ithread_create(). See
    * https://github.com/collectd/collectd/issues/9 for details.
-  */
+   */
 
   if (aTHX == perl_threads->head->interp)
     pthread_mutex_lock(&perl_threads->mutex);
@@ -2349,14 +2341,25 @@ static int g_interval_set(pTHX_ SV *var, MAGIC *mg) {
   return 0;
 } /* static int g_interval_set (pTHX_ SV *, MAGIC *) */
 
-static MGVTBL g_pv_vtbl = {g_pv_get, g_pv_set, NULL, NULL, NULL, NULL, NULL
+static MGVTBL g_pv_vtbl = {g_pv_get,
+                           g_pv_set,
+                           NULL,
+                           NULL,
+                           NULL,
+                           NULL,
+                           NULL
 #if HAVE_PERL_STRUCT_MGVTBL_SVT_LOCAL
                            ,
                            NULL
 #endif
 };
-static MGVTBL g_interval_vtbl = {g_interval_get, g_interval_set, NULL, NULL,
-                                 NULL, NULL, NULL
+static MGVTBL g_interval_vtbl = {g_interval_get,
+                                 g_interval_set,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL,
+                                 NULL
 #if HAVE_PERL_STRUCT_MGVTBL_SVT_LOCAL
                                  ,
                                  NULL
@@ -2390,6 +2393,11 @@ static void xs_init(pTHX) {
    * accessing any such variable (this is basically the same as using
    * tie() in Perl) */
   /* global strings */
+  struct {
+    char name[64];
+    char *var;
+  } g_strings[] = {{"Collectd::hostname_g", hostname_g}, {"", NULL}};
+
   for (int i = 0; '\0' != g_strings[i].name[0]; ++i) {
     tmp = get_sv(g_strings[i].name, 1);
     sv_magicext(tmp, NULL, PERL_MAGIC_ext, &g_pv_vtbl, g_strings[i].var, 0);

@@ -340,6 +340,7 @@ static int c_psql_connect(c_psql_database_t *db) {
   C_PSQL_PAR_APPEND(buf, buf_len, "sslmode", db->sslmode);
   C_PSQL_PAR_APPEND(buf, buf_len, "krbsrvname", db->krbsrvname);
   C_PSQL_PAR_APPEND(buf, buf_len, "service", db->service);
+  C_PSQL_PAR_APPEND(buf, buf_len, "application_name", "collectd_postgresql");
 
   db->conn = PQconnectdb(conninfo);
   db->proto_version = PQprotocolVersion(db->conn);
@@ -546,8 +547,8 @@ static int c_psql_exec_query(c_psql_database_t *db, udb_query_t *q,
 
   status = udb_query_prepare_result(
       q, prep_area, host,
-      (db->plugin_name != NULL) ? db->plugin_name : "postgresql",
-      db->instance, column_names, (size_t)column_num, db->interval);
+      (db->plugin_name != NULL) ? db->plugin_name : "postgresql", db->instance,
+      column_names, (size_t)column_num, db->interval);
 
   if (0 != status) {
     log_err("udb_query_prepare_result failed with status %i.", status);
@@ -741,7 +742,8 @@ static char *values_to_sqlarray(const data_set_t *ds, const value_list_t *vl,
 
       status = snprintf(str_ptr, str_len, ",%lf", rates[i]);
     } else if (ds->ds[i].type == DS_TYPE_COUNTER)
-      status = snprintf(str_ptr, str_len, ",%llu", vl->values[i].counter);
+      status = snprintf(str_ptr, str_len, ",%" PRIu64,
+                        (uint64_t)vl->values[i].counter);
     else if (ds->ds[i].type == DS_TYPE_DERIVE)
       status = snprintf(str_ptr, str_len, ",%" PRIi64, vl->values[i].derive);
     else if (ds->ds[i].type == DS_TYPE_ABSOLUTE)
@@ -1146,8 +1148,8 @@ static int c_psql_config_database(oconfig_item_t *ci) {
       cf_util_get_string(c, &db->password);
     else if (0 == strcasecmp(c->key, "Instance"))
       cf_util_get_string(c, &db->instance);
-    else if (0 == strcasecmp (c->key, "Plugin"))
-      cf_util_get_string (c, &db->plugin_name);
+    else if (0 == strcasecmp(c->key, "Plugin"))
+      cf_util_get_string(c, &db->plugin_name);
     else if (0 == strcasecmp(c->key, "SSLMode"))
       cf_util_get_string(c, &db->sslmode);
     else if (0 == strcasecmp(c->key, "KRBSrvName"))

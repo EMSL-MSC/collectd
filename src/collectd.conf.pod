@@ -1888,6 +1888,7 @@ The B<curl_xml plugin> uses B<libcurl> (L<http://curl.haxx.se/>) and B<libxml2>
  <Plugin "curl_xml">
    <URL "http://localhost/stats.xml">
      Host "my_host"
+     #Plugin "curl_xml"
      Instance "some_instance"
      User "collectd"
      Password "thaiNg0I"
@@ -1901,6 +1902,7 @@ The B<curl_xml plugin> uses B<libcurl> (L<http://curl.haxx.se/>) and B<libxml2>
        Type "magic_level"
        #InstancePrefix "prefix-"
        InstanceFrom "td[1]"
+       #PluginInstanceFrom "td[1]"
        ValuesFrom "td[2]/span[@class=\"level\"]"
      </XPath>
    </URL>
@@ -1926,10 +1928,16 @@ Within the B<URL> block the following options are accepted:
 Use I<Name> as the host name when submitting values. Defaults to the global
 host name setting.
 
+=item B<Plugin> I<Plugin>
+
+Use I<Plugin> as the plugin name when submitting values.
+Defaults to 'curl_xml'.
+
 =item B<Instance> I<Instance>
 
-Use I<Instance> as the plugin instance when submitting values. Defaults to an
-empty string (no plugin instance).
+Use I<Instance> as the plugin instance when submitting values.
+May be overridden by B<PluginInstanceFrom> option inside B<XPath> blocks.
+Defaults to an empty string (no plugin instance).
 
 =item B<Namespace> I<Prefix> I<URL>
 
@@ -2000,9 +2008,19 @@ Specifies a XPath expression to use for determining the I<type instance>. The
 XPath expression must return exactly one element. The element's value is then
 used as I<type instance>, possibly prefixed with I<InstancePrefix> (see above).
 
-This value is required. As a special exception, if the "base XPath expression"
-(the argument to the B<XPath> block) returns exactly one argument, then this
-option may be omitted.
+=item B<PluginInstanceFrom> I<PluginInstanceFrom>
+
+Specifies a XPath expression to use for determining the I<plugin instance>. The
+XPath expression must return exactly one element. The element's value is then
+used as I<plugin instance>.
+
+=back
+
+If the "base XPath expression" (the argument to the B<XPath> block) returns
+exactly one argument, then I<InstanceFrom> and I<PluginInstanceFrom> may be omitted.
+Otherwise, at least one of I<InstanceFrom> or I<PluginInstanceFrom> is required.
+
+=over 4
 
 =item B<ValuesFrom> I<ValuesFrom> [I<ValuesFrom> ...]
 
@@ -2011,6 +2029,7 @@ number of XPath expressions must match the number of data sources in the
 I<type> specified with B<Type> (see above). Each XPath expression must return
 exactly one element. The element's value is then parsed as a number and used as
 value for the appropriate value in the value list dispatched to the daemon.
+This option is required.
 
 =back
 
@@ -2553,6 +2572,8 @@ B<Synopsis:>
      MemoryChannels "4"
      FilePrefix "rte"
      SocketMemory "1024"
+     LogLevel "7"
+     RteDriverLibPath "/usr/lib/dpdk-pmd"
    </EAL>
    SharedMemObj "dpdk_collectd_stats_0"
    EnabledPortMask 0xffff
@@ -2584,6 +2605,20 @@ The prefix text used for hugepage filenames. The filename will be set to
 
 A string containing amount of Memory to allocate from hugepages on specific
 sockets in MB. This is an optional value.
+
+=item B<LogLevel> I<LogLevel_number>
+
+A string containing log level number. This parameter is optional.
+If parameter is not present then default value "7" - (INFO) is used.
+Value "8" - (DEBUG) can be set to enable debug traces.
+
+=item B<RteDriverLibPath> I<Path>
+
+A string containing path to shared pmd driver lib or path to directory,
+where shared pmd driver libs are available. This parameter is optional.
+This parameter enable loading of shared pmd driver libs from defined path.
+E.g.: "/usr/lib/dpdk-pmd/librte_pmd_i40e.so"
+or    "/usr/lib/dpdk-pmd"
 
 =back
 
@@ -2814,6 +2849,11 @@ Controls whether or not to recurse into subdirectories. Enabled by default.
 Controls whether or not to include "hidden" files and directories in the count.
 "Hidden" files and directories are those, whose name begins with a dot.
 Defaults to I<false>, i.e. by default hidden files and directories are ignored.
+
+=item B<RegularOnly> I<true>|I<false>
+
+Controls whether or not to include only regular files in the count.
+Defaults to I<true>, i.e. by default non regular files are ignored.
 
 =item B<FilesSizeType> I<Type>
 
@@ -3053,6 +3093,13 @@ Whether to enable SSL for incoming connections. Default: false.
 
 Filenames specifying SSL certificate and key material to be used with SSL
 connections.
+
+=item B<VerifyPeer> B<true>|B<false>
+
+When enabled, a valid client certificate is required to connect to the server.
+When disabled, a client certifiacte is not requested and any unsolicited client
+certificate is accepted.
+Enabled by default.
 
 =back
 
@@ -3332,7 +3379,42 @@ This option is only available on Solaris.
 
 =head2 Plugin C<ipmi>
 
+The B<ipmi plugin> allows to monitor server platform status using the Intelligent
+Platform Management Interface (IPMI). Local and remote interfaces are supported.
+
+The plugin configuration consists of one or more B<Instance> blocks which
+specify one I<ipmi> connection each. Each block requires one unique string
+argument as the instance name. If instances are not configured, an instance with
+the default option values will be created.
+
+For backwards compatibility, any option other than B<Instance> block will trigger
+legacy config handling and it will be treated as an option within B<Instance>
+block. This support will go away in the next major version of Collectd.
+
+Within the B<Instance> blocks, the following options are allowed:
+
 =over 4
+
+=item B<Address> I<Address>
+
+Hostname or IP to connect to. If not specified, plugin will try to connect to
+local management controller (BMC).
+
+=item B<Username> I<Username>
+
+=item B<Password> I<Password>
+
+The username and the password to use for the connection to remote BMC.
+
+=item B<AuthType> I<MD5>|I<rmcp+>
+
+Forces the authentication type to use for the connection to remote BMC.
+By default most secure type is seleted.
+
+=item B<Host> I<Hostname>
+
+Sets the B<host> field of dispatched values. Defaults to the global hostname
+setting.
 
 =item B<Sensor> I<Sensor>
 
@@ -3361,6 +3443,24 @@ If a sensor disappears a notification is sent.
 
 If you have for example dual power supply and one of them is (un)plugged then
 a notification is sent.
+
+=item B<NotifyIPMIConnectionState> I<true>|I<false>
+
+If a IPMI connection state changes after initialization time of a minute
+a notification is sent. Defaults to B<false>.
+
+=item B<SELEnabled> I<true>|I<false>
+
+If system event log (SEL) is enabled, plugin will listen for sensor threshold
+and discrete events. When event is received the notification is sent.
+Defaults to B<false>.
+
+=item B<SELClearEvent> I<true>|I<false>
+
+If SEL clear event is enabled, plugin will delete event from SEL list after
+it is received and successfully handled. In this case other tools that are
+subscribed for SEL events will receive an empty event.
+Defaults to B<false>.
 
 =back
 
@@ -4065,11 +4165,19 @@ Configures the base register to read from the device. If the option
 B<RegisterType> has been set to B<Uint32> or B<Float>, this and the next
 register will be read (the register number is increased by one).
 
-=item B<RegisterType> B<Int16>|B<Int32>|B<Uint16>|B<Uint32>|B<Float>
+=item B<RegisterType> B<Int16>|B<Int32>|B<Uint16>|B<Uint32>|B<Float>|B<Int32LE>|B<Uint32LE>|B<FloatLE>
 
-Specifies what kind of data is returned by the device. If the type is B<Int32>,
-B<Uint32> or B<Float>, two 16E<nbsp>bit registers will be read and the data is
-combined into one value. Defaults to B<Uint16>.
+Specifies what kind of data is returned by the device. This defaults to
+B<Uint16>.  If the type is B<Int32>, B<Int32LE>, B<Uint32>, B<Uint32LE>,
+B<Float> or B<FloatLE>, two 16E<nbsp>bit registers at B<RegisterBase>
+and B<RegisterBase+1> will be read and the data is combined into one
+32E<nbsp>value. For B<Int32>, B<Uint32> and B<Float> the most significant
+16E<nbsp>bits are in the register at B<RegisterBase> and the least
+significant 16E<nbsp>bits are in the register at B<RegisterBase+1>.
+For B<Int32LE>, B<Uint32LE>, or B<Float32LE>, the high and low order
+registers are swapped with the most significant 16E<nbsp>bits in
+the B<RegisterBase+1> and the least significant 16E<nbsp>bits in
+B<RegisterBase>.
 
 =item B<RegisterCmd> B<ReadHolding>|B<ReadInput>
 
@@ -6202,7 +6310,7 @@ L<http://www.postgresql.org/docs/manuals/>.
     <Database bar>
       Interval 300
       Service "service_name"
-      Query backend # predefined
+      Query backends # predefined
       Query rt36_tickets
     </Database>
 
@@ -6769,12 +6877,15 @@ C<I<prefix>/var/run/collectd-powerdns>.
 
 =head2 Plugin C<processes>
 
-=over 4
+Collects information about processes of local system.
 
-=item B<Process> I<Name>
+By default, with no process matches configured, only general statistics is
+collected: the number of processes in each state and fork rate.
 
-Select more detailed statistics of processes matching this name. The statistics
-collected for these selected processes are:
+Process matches can be configured by B<Process> and B<ProcessMatch> options.
+These may also be a block in which further options may be specified.
+
+The statistics collected for matched processes are:
  - size of the resident segment size (RSS)
  - user- and system-time used
  - number of processes
@@ -6783,23 +6894,66 @@ collected for these selected processes are:
  - number of memory mapped files (under Linux)
  - io data (where available)
  - context switches (under Linux)
- - minor and major pagefaults.
+ - minor and major pagefaults
+ - Delay Accounting information (Linux only, requires libmnl)
 
-Some platforms have a limit on the length of process names. I<Name> must stay
-below this limit.
+B<Synopsis:>
+
+ <Plugin processes>
+   CollectFileDescriptor  true
+   CollectContextSwitch   true
+   CollectDelayAccounting false
+   Process "name"
+   ProcessMatch "name" "regex"
+   <Process "collectd">
+     CollectFileDescriptor  false
+     CollectContextSwitch   false
+     CollectDelayAccounting true
+   </Process>
+   <ProcessMatch "name" "regex">
+     CollectFileDescriptor false
+     CollectContextSwitch  true
+   </Process>
+ </Plugin>
+
+=over 4
+
+=item B<Process> I<Name>
+
+Select more detailed statistics of processes matching this name.
+
+Some platforms have a limit on the length of process names.
+I<Name> must stay below this limit.
 
 =item B<ProcessMatch> I<name> I<regex>
 
-Similar to the B<Process> option this allows one to select more detailed
-statistics of processes matching the specified I<regex> (see L<regex(7)> for
-details). The statistics of all matching processes are summed up and
-dispatched to the daemon using the specified I<name> as an identifier. This
-allows one to "group" several processes together. I<name> must not contain
-slashes.
+Select more detailed statistics of processes matching the specified I<regex>
+(see L<regex(7)> for details). The statistics of all matching processes are
+summed up and dispatched to the daemon using the specified I<name> as an
+identifier. This allows one to "group" several processes together.
+I<name> must not contain slashes.
 
 =item B<CollectContextSwitch> I<Boolean>
 
-Collect context switch of the process.
+Collect the number of context switches for matched processes.
+Disabled by default.
+
+=item B<CollectDelayAccounting> I<Boolean>
+
+If enabled, collect Linux Delay Accounding information for matching processes.
+Delay Accounting provides the time processes wait for the CPU to become
+available, for I/O operations to finish, for pages to be swapped in and for
+freed pages to be reclaimed. The metrics are reported as "seconds per second"
+using the C<delay_rate> type, e.g. C<delay_rate-delay-cpu>.
+Disabled by default.
+
+This option is only available on Linux, requires the C<libmnl> library and
+requires the C<CAP_NET_ADMIN> capability at runtime.
+
+=item B<CollectFileDescriptor> I<Boolean>
+
+Collect number of file descriptors of matched processes.
+Disabled by default.
 
 =item B<CollectMemoryMaps> I<Boolean>
 
@@ -6808,6 +6962,13 @@ The limit for this number is configured via F</proc/sys/vm/max_map_count> in
 the Linux kernel.
 
 =back
+
+The B<CollectContextSwitch>, B<CollectDelayAccounting>,
+B<CollectFileDescriptor> and B<CollectMemoryMaps> options may be used inside
+B<Process> and B<ProcessMatch> blocks. When used there, these options affect
+reporting the corresponding processes only. Outside of B<Process> and
+B<ProcessMatch> blocks these options set the default value for subsequent
+matches.
 
 =head2 Plugin C<protocols>
 
@@ -7598,6 +7759,8 @@ If none are specified, no percentiles are calculated / dispatched.
 Calculate and dispatch various values out of I<Timer> metrics received during
 an interval. If set to B<False>, the default, these values aren't calculated /
 dispatched.
+
+Please note what reported timer values less than 0.001 are ignored in all B<Timer*> reports.
 
 =back
 
@@ -8443,6 +8606,7 @@ Synopsis:
      CollectManagement  false
      CollectSMF         false
      CollectVBE         false
+     CollectMSE         false
    </Instance>
  </Plugin>
 
@@ -8518,11 +8682,9 @@ log messages which is flushed to disk when full. True by default.
 =item B<CollectSMA> B<true>|B<false>
 
 malloc or umem (umem_alloc(3MALLOC) based) storage statistics. The umem storage
-component is Solaris specific.
-Note: SMA and SMF share counters, enable only the one used by the Varnish
-instance.
-Only available with Varnish 2.x. False by
-default.
+component is Solaris specific. Note: SMA, SMF and MSE share counters, enable
+only the one used by the Varnish instance. Only available with Varnish 2.x.
+False by default.
 
 =item B<CollectSMS> B<true>|B<false>
 
@@ -8570,9 +8732,8 @@ Backend counters. Only available with Varnish 4.x. False by default.
 =item B<CollectSMF> B<true>|B<false>
 
 file (memory mapped file) storage statistics. Only available with Varnish 4.x.
-Note: SMA and SMF share counters, enable only the one used by the Varnish
-instance.
-Used to be called SM in Varnish 2.x. False by default.
+Note: SMA, SMF and MSE share counters, enable only the one used by the Varnish
+instance. Used to be called SM in Varnish 2.x. False by default.
 
 =item B<CollectManagement> B<true>|B<false>
 
@@ -8585,6 +8746,13 @@ Lock counters. Only available with Varnish 4.x. False by default.
 =item B<CollectMempool> B<true>|B<false>
 
 Memory pool counters. Only available with Varnish 4.x. False by default.
+
+=item B<CollectMSE> B<true>|B<false>
+
+Varnish Massive Storage Engine 2.0 (MSE2) is an improved storage backend for
+Varnish, replacing the traditional malloc and file storages. Only available
+with Varnish-Plus 4.x. Note: SMA, SMF and MSE share counters, enable only the
+one used by the Varnish instance. False by default.
 
 =back
 
@@ -9229,6 +9397,12 @@ Only available for the KAIROSDB output format.
 Sets the Cassandra ttl for the data points.
 
 Please refer to L<http://kairosdb.github.io/docs/build/html/restapi/AddDataPoints.html?highlight=ttl>
+
+=item B<Prefix> I<String>
+
+Only available for the KAIROSDB output format.
+
+Sets the metrics prefix I<string>. Defaults to I<collectd>.
 
 =item B<Metrics> B<true>|B<false>
 
