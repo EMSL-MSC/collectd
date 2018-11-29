@@ -1190,13 +1190,13 @@ static int get_vcpu_stats(virDomainPtr domain, unsigned short nr_virt_cpu) {
 
   virVcpuInfoPtr vinfo = calloc(nr_virt_cpu, sizeof(vinfo[0]));
   if (vinfo == NULL) {
-    ERROR(PLUGIN_NAME " plugin: malloc failed.");
+    ERROR(PLUGIN_NAME " plugin: calloc failed.");
     return -1;
   }
 
   unsigned char *cpumaps = calloc(nr_virt_cpu, cpu_map_len);
   if (cpumaps == NULL) {
-    ERROR(PLUGIN_NAME " plugin: malloc failed.");
+    ERROR(PLUGIN_NAME " plugin: calloc failed.");
     sfree(vinfo);
     return -1;
   }
@@ -1637,7 +1637,7 @@ static int lv_read(user_data_t *ud) {
       ERROR(PLUGIN_NAME
             " failed to get stats for block device (%s) in domain %s",
             state->block_devices[i].path,
-            virDomainGetName(state->domains[i].ptr));
+            virDomainGetName(state->block_devices[i].dom));
   }
 
   /* Get interface stats for each domain. */

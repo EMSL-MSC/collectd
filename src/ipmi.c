@@ -785,11 +785,9 @@ entity_sensor_update_handler(enum ipmi_update_e op,
 
     if (st->sel_enabled) {
       int status = 0;
-      /* register threshold event if threshold sensor support events */
-      if ((ipmi_sensor_get_event_reading_type(sensor) ==
-           IPMI_EVENT_READING_TYPE_THRESHOLD) &&
-          (ipmi_sensor_get_threshold_access(sensor) !=
-           IPMI_THRESHOLD_ACCESS_SUPPORT_NONE))
+      /* register threshold event handler */
+      if (ipmi_sensor_get_event_reading_type(sensor) ==
+          IPMI_EVENT_READING_TYPE_THRESHOLD)
         status = ipmi_sensor_add_threshold_event_handler(
             sensor, sensor_threshold_event_handler, st);
       /* register discrete handler if discrete/specific sensor support events */
@@ -1064,9 +1062,14 @@ static int c_ipmi_config_add_instance(oconfig_item_t *ci) {
   for (int i = 0; i < ci->children_num; i++) {
     oconfig_item_t *child = ci->children + i;
 
-    if (strcasecmp("Sensor", child->key) == 0)
-      ignorelist_add(st->ignorelist, child->values[0].value.string);
-    else if (strcasecmp("IgnoreSelected", child->key) == 0) {
+    if (strcasecmp("Sensor", child->key) == 0) {
+      char *value = NULL;
+      status = cf_util_get_string(child, &value);
+      if (status != 0)
+        break;
+      ignorelist_add(st->ignorelist, value);
+      sfree(value);
+    } else if (strcasecmp("IgnoreSelected", child->key) == 0) {
       _Bool t;
       status = cf_util_get_boolean(child, &t);
       if (status != 0)
@@ -1210,7 +1213,7 @@ static int c_ipmi_init(void) {
   }
 
   /* Don't send `ADD' notifications during startup (~ 1 minute) */
-  int cycles = 1 + (60 / CDTIME_T_TO_TIME_T(plugin_get_interval()));
+  int cycles = 1 + (int)(TIME_T_TO_CDTIME_T(60) / plugin_get_interval());
 
   st = instances;
   while (NULL != st) {

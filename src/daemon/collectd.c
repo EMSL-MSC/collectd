@@ -43,6 +43,10 @@
 #include <statgrab.h>
 #endif
 
+#if HAVE_KSTAT_H
+#include <kstat.h>
+#endif
+
 #ifndef COLLECTD_LOCALE
 #define COLLECTD_LOCALE "C"
 #endif
@@ -201,6 +205,7 @@ static int change_basedir(const char *orig_dir, _Bool create) {
 } /* static int change_basedir (char *dir) */
 
 #if HAVE_LIBKSTAT
+extern kstat_ctl_t *kc;
 static void update_kstat(void) {
   if (kc == NULL) {
     if ((kc = kstat_open()) == NULL)
@@ -448,7 +453,7 @@ void read_cmdline(int argc, char **argv, struct cmdline_config *config) {
   /* read options */
   while (1) {
     int c;
-    c = getopt(argc, argv, "htTC:"
+    c = getopt(argc, argv, "BhtTC:"
 #if COLLECT_DAEMON
                            "fP:"
 #endif
