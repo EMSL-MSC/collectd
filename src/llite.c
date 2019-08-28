@@ -23,9 +23,9 @@
 #include <stdint.h>
 #include <string.h>
 #include "collectd.h"
-#include "common.h"
+#include "utils/common/common.h"
 #include "plugin.h"
-#include "utils_ignorelist.h"
+#include "utils/ignorelist/ignorelist.h"
 
 #define LLITEDIR "/proc/fs/lustre/llite"
 

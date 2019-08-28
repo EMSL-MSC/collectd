@@ -21,9 +21,9 @@
 
 #include "collectd.h"
 #include "plugin.h"
-#include "common.h"
+#include "utils/common/common.h"
 #include "utils_llist.h"
-#include "utils_ignorelist.h"
+#include "utils/ignorelist/ignorelist.h"
 #define ntohll
 #define htonll
 #include <infiniband/mad.h>
