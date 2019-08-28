@@ -27,9 +27,9 @@
  **/
 
 #include "collectd.h"
-#include "common.h"
+#include "utils/common/common.h"
 
-#include "utils_config_cores.h"
+#include "utils/config_cores/config_cores.h"
 
 #include <jevents.h>
 #include <jsession.h>
@@ -67,9 +67,9 @@ struct event_info {
 typedef struct event_info event_info_t;
 
 struct intel_pmu_ctx_s {
-  _Bool hw_cache_events;
-  _Bool kernel_pmu_events;
-  _Bool sw_events;
+  bool hw_cache_events;
+  bool kernel_pmu_events;
+  bool sw_events;
   char event_list_fn[PATH_MAX];
   char **hw_events;
   size_t hw_events_count;
@@ -267,7 +267,7 @@ static int pmu_config_hw_events(oconfig_item_t *ci) {
     return -EINVAL;
   }
 
-  g_ctx.hw_events = calloc(ci->values_num, sizeof(char *));
+  g_ctx.hw_events = calloc(ci->values_num, sizeof(*g_ctx.hw_events));
   if (g_ctx.hw_events == NULL) {
     ERROR(PMU_PLUGIN ": Failed to allocate hw events.");
     return -ENOMEM;
@@ -446,7 +446,7 @@ static int pmu_add_events(struct eventlist *el, uint32_t type,
     /* Allocate memory for event struct that contains array of efd structs
        for all cores */
     struct event *e =
-        calloc(sizeof(struct event) + sizeof(struct efd) * el->num_cpus, 1);
+        calloc(1, sizeof(struct event) + sizeof(struct efd) * el->num_cpus);
     if (e == NULL) {
       ERROR(PMU_PLUGIN ": Failed to allocate event structure");
       return -ENOMEM;
@@ -482,7 +482,7 @@ static int pmu_add_hw_events(struct eventlist *el, char **e, size_t count) {
       /* Allocate memory for event struct that contains array of efd structs
          for all cores */
       struct event *e =
-          calloc(sizeof(struct event) + sizeof(struct efd) * el->num_cpus, 1);
+          calloc(1, sizeof(struct event) + sizeof(struct efd) * el->num_cpus);
       if (e == NULL) {
         free(events);
         return -ENOMEM;

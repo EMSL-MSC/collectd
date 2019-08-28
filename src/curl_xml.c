@@ -21,9 +21,9 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
-#include "utils_curl_stats.h"
+#include "utils/common/common.h"
+#include "utils/curl_stats/curl_stats.h"
 #include "utils_llist.h"
 
 #include <libxml/parser.h>
@@ -76,12 +76,13 @@ struct cx_s /* {{{ */
   char *host;
 
   char *url;
+  int address_family;
   char *user;
   char *pass;
   char *credentials;
-  _Bool digest;
-  _Bool verify_peer;
-  _Bool verify_host;
+  bool digest;
+  bool verify_peer;
+  bool verify_host;
   char *cacert;
   char *post_body;
   int timeout;
@@ -736,6 +737,7 @@ static int cx_init_curl(cx_t *db) /* {{{ */
   curl_easy_setopt(db->curl, CURLOPT_ERRORBUFFER, db->curl_errbuf);
   curl_easy_setopt(db->curl, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(db->curl, CURLOPT_MAXREDIRS, 50L);
+  curl_easy_setopt(db->curl, CURLOPT_IPRESOLVE, db->address_family);
 
   if (db->user != NULL) {
 #ifdef HAVE_CURLOPT_USERNAME
@@ -814,6 +816,7 @@ static int cx_config_add_url(oconfig_item_t *ci) /* {{{ */
   }
 
   db->timeout = -1;
+  db->address_family = CURL_IPRESOLVE_WHATEVER;
 
   int status = cf_util_get_string(ci, &db->url);
   if (status != 0) {
@@ -822,6 +825,8 @@ static int cx_config_add_url(oconfig_item_t *ci) /* {{{ */
     sfree(db);
     return status;
   }
+
+  cdtime_t interval = 0;
 
   /* Fill the `cx_t' structure.. */
   for (int i = 0; i < ci->children_num; i++) {
@@ -853,12 +858,39 @@ static int cx_config_add_url(oconfig_item_t *ci) /* {{{ */
       status = cf_util_get_string(child, &db->post_body);
     else if (strcasecmp("Namespace", child->key) == 0)
       status = cx_config_add_namespace(db, child);
+    else if (strcasecmp("Interval", child->key) == 0)
+      status = cf_util_get_cdtime(child, &interval);
     else if (strcasecmp("Timeout", child->key) == 0)
       status = cf_util_get_int(child, &db->timeout);
     else if (strcasecmp("Statistics", child->key) == 0) {
       db->stats = curl_stats_from_config(child);
       if (db->stats == NULL)
         status = -1;
+    } else if (strcasecmp("AddressFamily", child->key) == 0) {
+      char *af = NULL;
+      status = cf_util_get_string(child, &af);
+      if (status != 0 || af == NULL) {
+        WARNING("curl_xml plugin: Cannot parse value of `%s' for URL `%s'.",
+                child->key, db->url);
+      } else if (strcasecmp("any", af) == 0) {
+        db->address_family = CURL_IPRESOLVE_WHATEVER;
+      } else if (strcasecmp("ipv4", af) == 0) {
+        db->address_family = CURL_IPRESOLVE_V4;
+      } else if (strcasecmp("ipv6", af) == 0) {
+        /* If curl supports ipv6, use it. If not, log a warning and
+         * fall back to default - don't set status to non-zero.
+         */
+        curl_version_info_data *curl_info = curl_version_info(CURLVERSION_NOW);
+        if (curl_info->features & CURL_VERSION_IPV6)
+          db->address_family = CURL_IPRESOLVE_V6;
+        else
+          WARNING("curl_xml plugin: IPv6 not supported by this libCURL. "
+                  "Using fallback `any'.");
+      } else {
+        WARNING("curl_xml plugin: Unsupported value of `%s' for URL `%s'.",
+                child->key, db->url);
+        status = -1;
+      }
     } else {
       WARNING("curl_xml plugin: Option `%s' not allowed here.", child->key);
       status = -1;
@@ -891,7 +923,7 @@ static int cx_config_add_url(oconfig_item_t *ci) /* {{{ */
   char *cb_name = ssnprintf_alloc("curl_xml-%s-%s", db->instance, db->url);
 
   plugin_register_complex_read(/* group = */ "curl_xml", cb_name, cx_read,
-                               /* interval = */ 0,
+                               /* interval = */ interval,
                                &(user_data_t){
                                    .data = db, .free_func = cx_free,
                                });

@@ -25,8 +25,8 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
+#include "utils/common/common.h"
 
 #include <netdb.h>
 #include <netinet/in.h>
@@ -38,8 +38,8 @@
 static const char *config_keys[] = {"Host", "Port", NULL};
 static int config_keys_num = 2;
 
-static char *mbmon_host = NULL;
-static char *mbmon_port = NULL;
+static char *mbmon_host;
+static char *mbmon_port;
 
 /*
  * NAME

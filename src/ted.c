@@ -36,8 +36,8 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
+#include "utils/common/common.h"
 
 #if HAVE_TERMIOS_H && HAVE_SYS_IOCTL_H
 #include <sys/ioctl.h>
@@ -53,8 +53,8 @@
 
 #define DEFAULT_DEVICE "/dev/ttyUSB0"
 
-static char *conf_device = NULL;
-static int conf_retries = 0;
+static char *conf_device;
+static int conf_retries;
 
 static int fd = -1;
 

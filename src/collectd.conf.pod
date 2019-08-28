@@ -530,9 +530,9 @@ are disabled by default.
 =head2 Plugin C<amqp>
 
 The I<AMQP plugin> can be used to communicate with other instances of
-I<collectd> or third party applications using an AMQP message broker. Values
-are sent to or received from the broker, which handles routing, queueing and
-possibly filtering out messages.
+I<collectd> or third party applications using an AMQP 0.9.1 message broker.
+Values are sent to or received from the broker, which handles routing,
+queueing and possibly filtering out messages.
 
 B<Synopsis:>
 
@@ -711,6 +711,171 @@ It's added after the I<Host> name.
 Metric name will be "<prefix><host><postfix><plugin><type><name>"
 
 =item B<GraphiteEscapeChar> (Publish and B<Format>=I<Graphite> only)
+
+Specify a character to replace dots (.) in the host part of the metric name.
+In I<Graphite> metric name, dots are used as separators between different
+metric parts (host, plugin, type).
+Default is "_" (I<Underscore>).
+
+=item B<GraphiteSeparateInstances> B<true>|B<false>
+
+If set to B<true>, the plugin instance and type instance will be in their own
+path component, for example C<host.cpu.0.cpu.idle>. If set to B<false> (the
+default), the plugin and plugin instance (and likewise the type and type
+instance) are put into one component, for example C<host.cpu-0.cpu-idle>.
+
+=item B<GraphiteAlwaysAppendDS> B<true>|B<false>
+
+If set to B<true>, append the name of the I<Data Source> (DS) to the "metric"
+identifier. If set to B<false> (the default), this is only done when there is
+more than one DS.
+
+=item B<GraphitePreserveSeparator> B<false>|B<true>
+
+If set to B<false> (the default) the C<.> (dot) character is replaced with
+I<GraphiteEscapeChar>. Otherwise, if set to B<true>, the C<.> (dot) character
+is preserved, i.e. passed through.
+
+=back
+
+=head2 Plugin C<amqp1>
+
+The I<AMQP1 plugin> can be used to communicate with other instances of
+I<collectd> or third party applications using an AMQP 1.0 message
+intermediary. Metric values or notifications are sent to the
+messaging intermediary which may handle direct messaging or
+queue based transfer.
+
+B<Synopsis:>
+
+ <Plugin "amqp1">
+   # Send values to an AMQP 1.0 intermediary
+  <Transport "name">
+    Host "localhost"
+    Port "5672"
+    User "guest"
+    Password "guest"
+    Address "collectd"
+#    RetryDelay 1
+    <Instance "some_name">
+        Format "command"
+        PreSettle false
+        Notify false
+ #      StoreRates false
+ #      GraphitePrefix "collectd."
+ #      GraphiteEscapeChar "_"
+ #      GraphiteSeparateInstances false
+ #      GraphiteAlwaysAppendDS false
+ #      GraphitePreserveSeparator false
+    </Instance>
+  </Transport>
+ </Plugin>
+
+The plugin's configuration consists of a I<Transport> that configures
+communications to the AMQP 1.0 messaging bus and one or more I<Instance>
+corresponding to metric or event publishers to the messaging system.
+
+The address in the I<Transport> block concatenated with the name given in the
+I<Instance> block starting tag will be used as the send-to address for
+communications over the messaging link.
+
+The following options are accepted within each I<Transport> block:
+
+=over 4
+
+=item B<Host> I<Host>
+
+Hostname or IP-address of the AMQP 1.0 intermediary. Defaults to the
+default behavior of the underlying communications library,
+I<libqpid-proton>, which is "localhost".
+
+=item B<Port> I<Port>
+
+Service name or port number on which the AMQP 1.0 intermediary accepts
+connections. This argument must be a string, even if the numeric form
+is used. Defaults to "5672".
+
+=item B<User> I<User>
+
+=item B<Password> I<Password>
+
+Credentials used to authenticate to the AMQP 1.0 intermediary. By
+default "guest"/"guest" is used.
+
+=item B<Address> I<Address>
+
+This option specifies the prefix for the send-to value in the message.
+By default, "collectd" will be used.
+
+=item B<RetryDelay> I<RetryDelay>
+
+When the AMQP1 connection is lost, defines the time in seconds to wait
+before attempting to reconnect. Defaults to 1, which implies attempt
+to reconnect at 1 second intervals.
+
+=back
+
+The following options are accepted within each I<Instance> block:
+
+=over 4
+
+=item B<Format> B<Command>|B<JSON>|B<Graphite>
+
+Selects the format in which messages are sent to the intermediary. If set to
+B<Command> (the default), values are sent as C<PUTVAL> commands which are
+identical to the syntax used by the I<Exec> and I<UnixSock plugins>. In this
+case, the C<Content-Type> header field will be set to C<text/collectd>.
+
+If set to B<JSON>, the values are encoded in the I<JavaScript Object Notation>,
+an easy and straight forward exchange format. The C<Content-Type> header field
+will be set to C<application/json>.
+
+If set to B<Graphite>, values are encoded in the I<Graphite> format, which is
+"<metric> <value> <timestamp>\n". The C<Content-Type> header field will be set to
+C<text/graphite>.
+
+A subscribing client I<should> use the C<Content-Type> header field to
+determine how to decode the values.
+
+=item B<PreSettle> B<true>|B<false>
+
+If set to B<false> (the default), the plugin will wait for a message
+acknowledgement from the messaging bus before sending the next
+message. This indicates transfer of ownership to the messaging
+system. If set to B<true>, the plugin will not wait for a message
+acknowledgement and the message may be dropped prior to transfer of
+ownership.
+
+=item B<Notify> B<true>|B<false>
+
+If set to B<false> (the default), the plugin will service the
+instance write call back as a value list. If set to B<true> the
+plugin will service the instance as a write notification callback
+for alert formatting.
+
+=item B<StoreRates> B<true>|B<false>
+
+Determines whether or not C<COUNTER>, C<DERIVE> and C<ABSOLUTE> data sources
+are converted to a I<rate> (i.e. a C<GAUGE> value). If set to B<false> (the
+default), no conversion is performed. Otherwise the conversion is performed
+using the internal value cache.
+
+Please note that currently this option is only used if the B<Format> option has
+been set to B<JSON>.
+
+=item B<GraphitePrefix>
+
+A prefix can be added in the metric name when outputting in the I<Graphite> format.
+It's added before the I<Host> name.
+Metric name will be "<prefix><host><postfix><plugin><type><name>"
+
+=item B<GraphitePostfix>
+
+A postfix can be added in the metric name when outputting in the I<Graphite> format.
+It's added after the I<Host> name.
+Metric name will be "<prefix><host><postfix><plugin><type><name>"
+
+=item B<GraphiteEscapeChar>
 
 Specify a character to replace dots (.) in the host part of the metric name.
 In I<Graphite> metric name, dots are used as separators between different
@@ -1491,11 +1656,24 @@ Defaults to B<true>.
 
 =head2 Plugin C<cpufreq>
 
-This plugin doesn't have any options. It reads
+This plugin is available on Linux and FreeBSD only.  It doesn't have any
+options.  On Linux it reads
 F</sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq> (for the first CPU
 installed) to get the current CPU frequency. If this file does not exist make
 sure B<cpufreqd> (L<http://cpufreqd.sourceforge.net/>) or a similar tool is
 installed and an "cpu governor" (that's a kernel module) is loaded.
+
+On Linux, if the system has the I<cpufreq-stats> kernel module loaded, this
+plugin reports the rate of p-state (cpu frequency) transitions and the
+percentage of time spent in each p-state.
+
+On FreeBSD it does a sysctl dev.cpu.0.freq and submits this as instance 0.
+At this time FreeBSD only has one frequency setting for all cores.
+See the BUGS section in the FreeBSD man page for cpufreq(4) for more details.
+
+On FreeBSD the plugin checks the success of sysctl dev.cpu.0.freq and
+unregisters the plugin when this fails.  A message will be logged to indicate
+this.
 
 =head2 Plugin C<cpusleep>
 
@@ -1626,6 +1804,7 @@ finance page and dispatch the value to collectd.
     <Page "stock_quotes">
       Plugin "quotes"
       URL "http://finance.google.com/finance?q=NYSE%3AAMD"
+      AddressFamily "any"
       User "foo"
       Password "bar"
       Digest false
@@ -1665,6 +1844,18 @@ Defaults to C<curl>.
 
 URL of the web site to retrieve. Since a regular expression will be used to
 extract information from this data, non-binary data is a big plus here ;)
+
+=item B<AddressFamily> I<Type>
+
+IP version to resolve URL to. Useful in cases when hostname in URL resolves
+to both IPv4 and IPv6 addresses, and you are interested in using one of them
+specifically.
+Use C<ipv4> to enforce IPv4, C<ipv6> to enforce IPv6, or C<any> to keep the
+default behavior of resolving addresses to all IP versions your system allows.
+If C<libcurl> is compiled without IPv6 support, using C<ipv6> will result in
+a warning and fallback to C<any>.
+If C<Type> cannot be parsed, a warning will be printed and the whole B<Page>
+block will be ignored.
 
 =item B<User> I<Name>
 
@@ -1743,6 +1934,11 @@ plugin below on how matches are defined. If the B<MeasureResponseTime> or
 B<MeasureResponseCode> options are set to B<true>, B<Match> blocks are
 optional.
 
+=item B<Interval> I<Interval>
+
+Sets the interval (in seconds) in which the values will be collected from this
+URL. By default the global B<Interval> setting will be used.
+
 =item B<Timeout> I<Milliseconds>
 
 The B<Timeout> option sets the overall timeout for HTTP requests to B<URL>, in
@@ -1772,6 +1968,7 @@ C<_stats> runtime statistics module of I<CouchDB>
 
   <Plugin curl_json>
     <URL "http://localhost:5984/_stats">
+      AddressFamily "any"
       Instance "httpd"
       <Key "httpd/requests/count">
         Type "http_requests"
@@ -1815,6 +2012,18 @@ values for all map keys or array indices will be collectd.
 The following options are valid within B<URL> blocks:
 
 =over 4
+
+=item B<AddressFamily> I<Type>
+
+IP version to resolve URL to. Useful in cases when hostname in URL resolves
+to both IPv4 and IPv6 addresses, and you are interested in using one of them
+specifically.
+Use C<ipv4> to enforce IPv4, C<ipv6> to enforce IPv6, or C<any> to keep the
+default behavior of resolving addresses to all IP versions your system allows.
+If C<libcurl> is compiled without IPv6 support, using C<ipv6> will result in
+a warning and fallback to C<any>.
+If C<Type> cannot be parsed, a warning will be printed and the whole B<URL>
+block will be ignored.
 
 =item B<Host> I<Name>
 
@@ -1887,6 +2096,7 @@ The B<curl_xml plugin> uses B<libcurl> (L<http://curl.haxx.se/>) and B<libxml2>
 
  <Plugin "curl_xml">
    <URL "http://localhost/stats.xml">
+     AddressFamily "any"
      Host "my_host"
      #Plugin "curl_xml"
      Instance "some_instance"
@@ -1923,6 +2133,18 @@ Within the B<URL> block the following options are accepted:
 
 =over 4
 
+=item B<AddressFamily> I<Type>
+
+IP version to resolve URL to. Useful in cases when hostname in URL resolves
+to both IPv4 and IPv6 addresses, and you are interested in using one of them
+specifically.
+Use C<ipv4> to enforce IPv4, C<ipv6> to enforce IPv6, or C<any> to keep the
+default behavior of resolving addresses to all IP versions your system allows.
+If C<libcurl> is compiled without IPv6 support, using C<ipv6> will result in
+a warning and fallback to C<any>.
+If C<Type> cannot be parsed, a warning will be printed and the whole B<URL>
+block will be ignored.
+
 =item B<Host> I<Name>
 
 Use I<Name> as the host name when submitting values. Defaults to the global
@@ -1938,6 +2160,11 @@ Defaults to 'curl_xml'.
 Use I<Instance> as the plugin instance when submitting values.
 May be overridden by B<PluginInstanceFrom> option inside B<XPath> blocks.
 Defaults to an empty string (no plugin instance).
+
+=item B<Interval> I<Interval>
+
+Sets the interval (in seconds) in which the values will be collected from this
+URL. By default the global B<Interval> setting will be used.
 
 =item B<Namespace> I<Prefix> I<URL>
 
@@ -3031,6 +3258,30 @@ Pause to apply between attempts of connection to gpsd in seconds (default 5 sec)
 
 =back
 
+=head2 Plugin C<gpu_nvidia>
+
+Efficiently collects various statistics from the system's NVIDIA GPUs using the
+NVML library. Currently collected are fan speed, core temperature, percent
+load, percent memory used, compute and memory frequencies, and power
+consumption.
+
+=over 4
+
+=item B<GPUIndex>
+
+If one or more of these options is specified, only GPUs at that index (as
+determined by nvidia-utils through I<nvidia-smi>) have statistics collected.
+If no instance of this option is specified, all GPUs are monitored.
+
+=item B<IgnoreSelected>
+
+If set to true, all detected GPUs B<except> the ones at indices specified by
+B<GPUIndex> entries are collected. For greater clarity, setting IgnoreSelected
+without any GPUIndex directives will result in B<no> statistics being
+collected.
+
+=back
+
 =head2 Plugin C<grpc>
 
 The I<grpc> plugin provides an RPC interface to submit values to or query
@@ -3295,6 +3546,7 @@ B<Synopsis:>
 
   <Plugin "intel_rdt">
     Cores "0-2" "3,4,6" "8-10,15"
+    Processes "sshd,qemu-system-x86" "bash"
   </Plugin>
 
 B<Options:>
@@ -3310,17 +3562,25 @@ recommended to set interval higher than 1 sec.
 
 =item B<Cores> I<cores groups>
 
-All events are reported on a per core basis. Monitoring of the events can be
-configured for group of cores (aggregated statistics). This field defines groups
-of cores on which to monitor supported events. The field is represented as list
-of strings with core group values. Each string represents a list of cores in a
-group. Allowed formats are:
+Monitoring of the events can be configured for group of cores
+(aggregated statistics). This field defines groups of cores on which to monitor
+supported events. The field is represented as list of strings with core group
+values. Each string represents a list of cores in a group. Allowed formats are:
     0,1,2,3
     0-10,20-18
     1,3,5-8,10,0x10-12
 
 If an empty string is provided as value for this field default cores
 configuration is applied - a separate group is created for each core.
+
+=item B<Processes> I<process names groups>
+
+Monitoring of the events can be configured for group of processes
+(aggregated statistics). This field defines groups of processes on which to
+monitor supported events. The field is represented as list of strings with
+process names group values. Each string represents a list of processes in a
+group. Allowed format is:
+    sshd,bash,qemu
 
 =back
 
@@ -3471,7 +3731,22 @@ a notification is sent. Defaults to B<false>.
 
 If system event log (SEL) is enabled, plugin will listen for sensor threshold
 and discrete events. When event is received the notification is sent.
+SEL event filtering can be configured using B<SELSensor> and B<SELIgnoreSelected>
+config options.
 Defaults to B<false>.
+
+=item B<SELSensor> I<SELSensor>
+
+Selects sensors to get events from or to ignore, depending on B<SELIgnoreSelected>.
+
+See F</"IGNORELISTS"> for details.
+
+=item B<SELIgnoreSelected> I<true>|I<false>
+
+If no configuration is given, the B<ipmi> plugin will pass events from all
+sensors. This option enables you to do that: By setting B<SELIgnoreSelected>
+to I<true> the effect of B<SELSensor> is inverted: All events from selected
+sensors are ignored and all events from other sensors are passed.
 
 =item B<SELClearEvent> I<true>|I<false>
 
@@ -4114,8 +4389,9 @@ which the sizes of physical memory vary.
 
 The B<modbus plugin> connects to a Modbus "slave" via Modbus/TCP or Modbus/RTU and
 reads register values. It supports reading single registers (unsigned 16E<nbsp>bit
-values), large integer values (unsigned 32E<nbsp>bit values) and floating point
-values (two registers interpreted as IEEE floats in big endian notation).
+values), large integer values (unsigned 32E<nbsp>bit and 64E<nbsp>bit values) and
+floating point values (two registers interpreted as IEEE floats in big endian
+notation).
 
 B<Synopsis:>
 
@@ -4125,6 +4401,8 @@ B<Synopsis:>
    RegisterCmd ReadHolding
    Type voltage
    Instance "input-1"
+   #Scale 1.0
+   #Shift 0.0
  </Data>
 
  <Data "voltage-input-2">
@@ -4183,7 +4461,7 @@ Configures the base register to read from the device. If the option
 B<RegisterType> has been set to B<Uint32> or B<Float>, this and the next
 register will be read (the register number is increased by one).
 
-=item B<RegisterType> B<Int16>|B<Int32>|B<Uint16>|B<Uint32>|B<Float>|B<Int32LE>|B<Uint32LE>|B<FloatLE>
+=item B<RegisterType> B<Int16>|B<Int32>|B<Int64>|B<Uint16>|B<Uint32>|B<UInt64>|B<Float>|B<Int32LE>|B<Uint32LE>|B<FloatLE>
 
 Specifies what kind of data is returned by the device. This defaults to
 B<Uint16>.  If the type is B<Int32>, B<Int32LE>, B<Uint32>, B<Uint32LE>,
@@ -4195,7 +4473,10 @@ significant 16E<nbsp>bits are in the register at B<RegisterBase+1>.
 For B<Int32LE>, B<Uint32LE>, or B<Float32LE>, the high and low order
 registers are swapped with the most significant 16E<nbsp>bits in
 the B<RegisterBase+1> and the least significant 16E<nbsp>bits in
-B<RegisterBase>.
+B<RegisterBase>. If the type is B<Int64> or B<UInt64>, four 16E<nbsp>bit
+registers at B<RegisterBase>, B<RegisterBase+1>, B<RegisterBase+2> and
+B<RegisterBase+3> will be read and the data combined into one
+64E<nbsp>value.
 
 =item B<RegisterCmd> B<ReadHolding>|B<ReadInput>
 
@@ -4210,8 +4491,18 @@ supported.
 
 =item B<Instance> I<Instance>
 
-Sets the type instance to use when dispatching the value to I<collectd>. If
+Sets the type instance to use when dispatching the value to I<Instance>. If
 unset, an empty string (no type instance) is used.
+
+=item B<Scale> I<Value>
+
+The values taken from device are multiplied by I<Value>. The field is optional
+and the default is B<1.0>.
+
+=item B<Shift> I<Value>
+
+I<Value> is added to values from device after they have been multiplied by
+B<Scale> value. The field is optional and the default value is B<0.0>.
 
 =back
 
@@ -4246,6 +4537,12 @@ For Modbus/RTU, specifies the path to the serial device being used.
 
 For Modbus/RTU, specifies the baud rate of the serial device.
 Note, connections currently support only 8/N/1.
+
+=item B<UARTType> I<UARTType>
+
+For Modbus/RTU, specifies the type of the serial device.
+RS232, RS422 and RS485 are supported. Defaults to RS232.
+Available only on Linux systems with libmodbus>=2.9.4.
 
 =item B<Interval> I<Interval>
 
@@ -5136,8 +5433,9 @@ When configuring with B<Interface> only the basic statistics will be collected,
 namely octets, packets, and errors. These statistics are collected by
 the C<interface> plugin, too, so using both at the same time is no benefit.
 
-When configured with B<VerboseInterface> all counters B<except> the basic ones,
-so that no data needs to be collected twice if you use the C<interface> plugin.
+When configured with B<VerboseInterface> all counters B<except> the basic ones
+will be collected, so that no data needs to be collected twice if you use the
+C<interface> plugin.
 This includes dropped packets, received multicast packets, collisions and a
 whole zoo of differentiated RX and TX errors. You can try the following command
 to get an idea of what awaits you:
@@ -5278,6 +5576,12 @@ undefined or a non-existent interface name is specified, the default
 behavior is to let the kernel choose the appropriate interface. Be warned
 that the manual selection of an interface for unicast traffic is only
 necessary in rare cases.
+
+=item B<BindAddress> I<IP Address>
+
+Set the outgoing IP address for IP packets. This option can be used instead of
+the I<Interface> option to explicitly define the IP address which will be used
+to send Packets to the remote server. 
 
 =item B<ResolveInterval> I<Seconds>
 
@@ -6071,6 +6375,7 @@ B<Synopsis:>
    Address "127.0.0.1"
    Socket "/var/run/openvswitch/db.sock"
    Bridges "br0" "br_ext"
+   InterfaceStats false
  </Plugin>
 
 The plugin provides the following configuration options:
@@ -6103,6 +6408,59 @@ List of OVS bridge names to be monitored by this plugin. If this option is
 omitted or is empty then all OVS bridges will be monitored.
 
 Default: empty (monitor all bridges)
+
+=item B<InterfaceStats> B<false>|B<true>
+
+Indicates that the plugin should gather statistics for individual interfaces
+in addition to ports.  This can be useful when monitoring an OVS setup with
+bond ports, where you might wish to know individual statistics for the
+interfaces included in the bonds.  Defaults to B<false>.
+
+=back
+
+=head2 Plugin C<pcie_errors>
+
+The I<pcie_errors> plugin collects PCI Express errors from Device Status in Capability
+structure and from Advanced Error Reporting Extended Capability where available.
+At every read it polls config space of PCI Express devices and dispatches
+notification for every error that is set. It checks for new errors at every read.
+The device is indicated in plugin_instance according to format "domain:bus:dev.fn".
+Errors are divided into categories indicated by type_instance: "correctable", and
+for uncorrectable errors "non_fatal" or "fatal".
+Fatal errors are reported as I<NOTIF_FAILURE> and all others as I<NOTIF_WARNING>.
+
+B<Synopsis:>
+
+  <Plugin "pcie_errors">
+    Source "sysfs"
+    AccessDir "/sys/bus/pci"
+    ReportMasked false
+    PersistentNotifications false
+  </Plugin>
+
+B<Options:>
+
+=over 4
+
+=item B<Source> B<sysfs>|B<proc>
+
+Use B<sysfs> or B<proc> to read data from /sysfs or /proc.
+The default value is B<sysfs>.
+
+=item B<AccessDir> I<dir>
+
+Directory used to access device config space. It is optional and defaults to
+/sys/bus/pci for B<sysfs> and to /proc/bus/pci for B<proc>.
+
+=item B<ReportMasked> B<false>|B<true>
+
+If true plugin will notify about errors that are set to masked in Error Mask register.
+Such errors are not reported to the PCI Express Root Complex. Defaults to B<false>.
+
+=item B<PersistentNotifications> B<false>|B<true>
+
+If false plugin will dispatch notification only on set/clear of error.
+The ones already reported will be ignored. Defaults to B<false>.
 
 =back
 
@@ -6239,6 +6597,11 @@ long string is used so that the packet size of an ICMPv4 packet is exactly
 
 Sets the source address to use. I<host> may either be a numerical network
 address or a network hostname.
+
+=item B<AddressFamily> I<af>
+
+Sets the address family to use. I<af> may be "any", "ipv4" or "ipv6". This
+option will be ignored if you set a B<SourceAddress>.
 
 =item B<Device> I<name>
 
@@ -7053,6 +7416,7 @@ multiple routers:
       CollectRegistrationTable true
       CollectDF true
       CollectDisk true
+      CollectHealth true
     </Router>
   </Plugin>
 
@@ -7113,28 +7477,36 @@ Defaults to B<false>.
 When enabled, the number of sectors written and bad blocks will be collected.
 Defaults to B<false>.
 
+=item B<CollectHealth> B<true>|B<false>
+
+When enabled, the health statistics will be collected. This includes the
+voltage and temperature on supported hardware.
+Defaults to B<false>.
+
 =back
 
 =head2 Plugin C<redis>
 
-The I<Redis plugin> connects to one or more Redis servers and gathers
-information about each server's state. For each server there is a I<Node> block
-which configures the connection parameters for this node.
+The I<Redis plugin> connects to one or more Redis servers, gathers
+information about each server's state and executes user-defined queries.
+For each server there is a I<Node> block which configures the connection
+parameters and set of user-defined queries for this node.
 
   <Plugin redis>
     <Node "example">
         Host "localhost"
         Port "6379"
+        #Socket "/var/run/redis/redis.sock"
         Timeout 2000
+        ReportCommandStats false
+        ReportCpuUsage true
         <Query "LLEN myqueue">
+          #Database 0
           Type "queue_length"
           Instance "myqueue"
-        <Query>
+        </Query>
     </Node>
   </Plugin>
-
-The information shown in the synopsis above is the I<default configuration>
-which is used by the plugin if no configuration is present.
 
 =over 4
 
@@ -7143,7 +7515,9 @@ which is used by the plugin if no configuration is present.
 The B<Node> block identifies a new Redis node, that is a new Redis instance
 running in an specified host and port. The name for node is a canonical
 identifier which is used as I<plugin instance>. It is limited to
-64E<nbsp>characters in length.
+128E<nbsp>characters in length.
+
+When no B<Node> is configured explicitly, plugin connects to "localhost:6379".
 
 =item B<Host> I<Hostname>
 
@@ -7156,6 +7530,11 @@ The B<Port> option is the TCP port on which the Redis instance accepts
 connections. Either a service name of a port number may be given. Please note
 that numerical port numbers must be given as a string, too.
 
+=item B<Socket> I<Path>
+
+Connect to Redis using the UNIX domain socket at I<Path>. If this
+setting is given, the B<Hostname> and B<Port> settings are ignored.
+
 =item B<Password> I<Password>
 
 Use I<Password> to authenticate when connecting to I<Redis>.
@@ -7163,25 +7542,47 @@ Use I<Password> to authenticate when connecting to I<Redis>.
 =item B<Timeout> I<Milliseconds>
 
 The B<Timeout> option set the socket timeout for node response. Since the Redis
-read function is blocking, you should keep this value as low as possible. Keep
-in mind that the sum of all B<Timeout> values for all B<Nodes> should be lower
-than B<Interval> defined globally.
+read function is blocking, you should keep this value as low as possible.
+It is expected what B<Timeout> values should be lower than B<Interval> defined
+globally.
+
+Defaults to 2000 (2 seconds).
+
+=item B<ReportCommandStats> B<false>|B<true>
+
+Enables or disables reporting of statistics based on the command type, including
+rate of command calls and average CPU time consumed by command processing.
+Defaults to B<false>.
+
+=item B<ReportCpuUsage> B<true>|B<false>
+
+Enables or disables reporting of CPU consumption statistics.
+Defaults to B<true>.
 
 =item B<Query> I<Querystring>
 
 The B<Query> block identifies a query to execute against the redis server.
-There may be an arbitrary number of queries to execute.
+There may be an arbitrary number of queries to execute. Each query should
+return single string or integer.
 
 =item B<Type> I<Collectd type>
 
-Within a query definition, a valid collectd type to use as when submitting
+Within a query definition, a valid I<collectd type> to use as when submitting
 the result of the query. When not supplied, will default to B<gauge>.
+
+Currently only types with one datasource are supported.
+See L<types.db(5)> for more details on types and their configuration.
 
 =item B<Instance> I<Type instance>
 
 Within a query definition, an optional type instance to use when submitting
 the result of the query. When not supplied will default to the escaped
-command, up to 64 chars.
+command, up to 128 chars.
+
+=item B<Database> I<Index>
+
+This index selects the Redis logical database to use for query. Defaults
+to C<0>.
 
 =back
 
@@ -7621,7 +8022,9 @@ B<Synopsis:>
       IndexOID "IF-MIB::ifIndex"
       SizeOID "IF-MIB::ifNumber"
       <Data "ifDescr">
-        Instance true
+        <IndexKey>
+          Source "PluginInstance"
+        </IndexKey>
         Plugin "interface"
         OIDs "IF-MIB::ifDescr"
       </Data>
@@ -7632,12 +8035,44 @@ B<Synopsis:>
         OIDs "IF-MIB::ifInOctets" "IF-MIB::ifOutOctets"
       </Data>
     </Table>
+    <Table "CPUAffinityTable">
+      <Data "DomainName">
+        <IndexKey>
+          Source "PluginInstance"
+        </IndexKey>
+        Plugin "virt"
+        OIDs "LIBVIRT-HYPERVISOR-MIB::lvhAffinityDomainName"
+      </Data>
+      <Data "VCPU">
+        Plugin "virt"
+        <IndexKey>
+          Source "TypeInstance"
+          Regex "^vcpu_([0-9]{1,3})-cpu_[0-9]{1,3}$"
+          Group 1
+        </IndexKey>
+        OIDs "LIBVIRT-HYPERVISOR-MIB::lvhVCPUIndex"
+      </Data>
+      <Data "CPU">
+        Plugin "virt"
+        <IndexKey>
+          Source "TypeInstance"
+          Regex "^vcpu_[0-9]{1,3}-cpu_([0-9]{1,3})$"
+          Group 1
+        </IndexKey>
+        OIDs "LIBVIRT-HYPERVISOR-MIB::lvhCPUIndex"
+      </Data>
+      <Data "CPUAffinity">
+        Plugin "virt"
+        Type "cpu_affinity"
+        OIDs "LIBVIRT-HYPERVISOR-MIB::lvhCPUAffinity"
+      </Data>
+    </Table>
   </Plugin>
 
 There are two types of blocks that can be contained in the
 C<E<lt>PluginE<nbsp> snmp_agentE<gt>> block: B<Data> and B<Table>:
 
-=head3 The B<Data> block
+=head3 B<Data> block
 
 The B<Data> block defines a list OIDs that are to be handled. This block can
 define scalar or table OIDs. If B<Data> block is defined inside of B<Table>
@@ -7646,11 +8081,34 @@ The following options can be set:
 
 =over 4
 
-=item B<Instance> I<true|false>
+=item B<IndexKey> block
 
-When B<Instance> is set to B<true>, the value for requested OID is copied from
-plugin instance field of corresponding collectd value. If B<Data> block defines
-scalar data type B<Instance> has no effect and can be omitted.
+B<IndexKey> block contains all data needed for proper index build of snmp table.
+In case more than
+one table B<Data> block has B<IndexKey> block present then multiple key index is
+built. If B<Data> block defines scalar data type B<IndexKey> has no effect and can
+be omitted.
+
+=over 8
+
+=item B<Source> I<String>
+
+B<Source> can be set to one of the following values: "Hostname", "Plugin",
+"PluginInstance", "Type", "TypeInstance". This value indicates which field of
+corresponding collectd metric is taken as a SNMP table index.
+
+=item B<Regex> I<String>
+
+B<Regex> option can also be used to parse strings or numbers out of
+specific field. For example: type-instance field which is "vcpu1-cpu2" can be
+parsed into two numeric fields CPU = 2 and VCPU = 1 and can be later used
+as a table index.
+
+=item B<Group> I<Number>
+
+B<Group> number can be specified in case groups are used in regex.
+
+=back
 
 =item B<Plugin> I<String>
 
@@ -8194,13 +8652,14 @@ B<Synopsis:>
    <Metric "snort-dropped">
        Type "percent"
        Instance "dropped"
-       Index 1
+       ValueFrom 1
    </Metric>
    <File "/var/log/snort/snort.stats">
        Plugin "snortstats"
        Instance "eth0"
        Interval 600
        Collect "snort-dropped"
+       #TimeFrom 0
    </File>
  </Plugin>
 
@@ -8522,6 +8981,33 @@ dynamic number assigned by the kernel. Otherwise, C<coreE<lt>nE<gt>> is used
 if there is only one package and C<pkgE<lt>nE<gt>-coreE<lt>mE<gt>> if there is
 more than one, where I<n> is the n-th core of package I<m>.
 
+=item B<RestoreAffinityPolicy> I<AllCPUs>|I<Restore>
+
+Reading data from CPU has side-effect: collectd process's CPU affinity mask
+changes. After reading data is completed, affinity mask needs to be restored.
+This option allows to set restore policy.
+
+B<AllCPUs> (the default): Restore the affinity by setting affinity to any/all
+CPUs.
+
+B<Restore>: Save affinity using sched_getaffinity() before reading data and
+restore it after.
+
+On some systems, sched_getaffinity() will fail due to inconsistency of the CPU
+set size between userspace and kernel. In these cases plugin will detect the
+unsuccessful call and fail with an error, preventing data collection.
+Most of configurations does not need to save affinity as Collectd process is
+allowed to run on any/all available CPUs.
+
+If you need to save and restore affinity and get errors like 'Unable to save
+the CPU affinity', setting 'possible_cpus' kernel boot option may also help.
+
+See following links for details:
+
+L<https://github.com/collectd/collectd/issues/1593>
+L<https://sourceware.org/bugzilla/show_bug.cgi?id=15630>
+L<https://bugzilla.kernel.org/show_bug.cgi?id=151821>
+
 =back
 
 =head2 Plugin C<unixsock>
@@ -8791,6 +9277,40 @@ only on the host system.
 
 Only I<Connection> is required.
 
+Consider the following example config:
+
+ <Plugin "virt">
+   Connection "qemu:///system"
+   HostnameFormat "hostname"
+   InterfaceFormat "address"
+   PluginInstanceFormat "name"
+ </Plugin>
+
+It will generate the following values:
+
+  node42.example.com/virt-instance-0006f26c/disk_octets-vda
+  node42.example.com/virt-instance-0006f26c/disk_ops-vda
+  node42.example.com/virt-instance-0006f26c/if_dropped-ca:fe:ca:fe:ca:fe
+  node42.example.com/virt-instance-0006f26c/if_errors-ca:fe:ca:fe:ca:fe
+  node42.example.com/virt-instance-0006f26c/if_octets-ca:fe:ca:fe:ca:fe
+  node42.example.com/virt-instance-0006f26c/if_packets-ca:fe:ca:fe:ca:fe
+  node42.example.com/virt-instance-0006f26c/memory-actual_balloon
+  node42.example.com/virt-instance-0006f26c/memory-available
+  node42.example.com/virt-instance-0006f26c/memory-last_update
+  node42.example.com/virt-instance-0006f26c/memory-major_fault
+  node42.example.com/virt-instance-0006f26c/memory-minor_fault
+  node42.example.com/virt-instance-0006f26c/memory-rss
+  node42.example.com/virt-instance-0006f26c/memory-swap_in
+  node42.example.com/virt-instance-0006f26c/memory-swap_out
+  node42.example.com/virt-instance-0006f26c/memory-total
+  node42.example.com/virt-instance-0006f26c/memory-unused
+  node42.example.com/virt-instance-0006f26c/memory-usable
+  node42.example.com/virt-instance-0006f26c/virt_cpu_total
+  node42.example.com/virt-instance-0006f26c/virt_vcpu-0
+
+You can get information on the metric's units from the online libvirt documentation.
+For instance, I<virt_cpu_total> is in nanoseconds.
+
 =over 4
 
 =item B<Connection> I<uri>
@@ -8832,13 +9352,51 @@ surrounded by I</.../> and collectd was compiled with support for regexps.
 
 The default is to collect statistics for all domains and all their devices.
 
-Example:
+B<Note:> B<BlockDevice> and B<InterfaceDevice> options are related to
+corresponding B<*Format> options. Specifically, B<BlockDevice> filtering depends
+on B<BlockDeviceFormat> setting - if user wants to filter block devices by
+'target' name then B<BlockDeviceFormat> option has to be set to 'target' and
+B<BlockDevice> option must be set to a valid block device target
+name("/:hdb/"). Mixing formats and filter values from different worlds (i.e.,
+using 'target' name as B<BlockDevice> value with B<BlockDeviceFormat> set to
+'source') may lead to unexpected results (all devices filtered out or all
+visible, depending on the value of B<IgnoreSelected> option).
+Similarly, option B<InterfaceDevice> is related to B<InterfaceFormat> setting
+(i.e., when user wants to use MAC address as a filter then B<InterfaceFormat>
+has to be set to 'address' - using wrong type here may filter out all of the
+interfaces).
+
+B<Example 1:>
+
+Ignore all I<hdb> devices on any domain, but other block devices (eg. I<hda>)
+will be collected:
 
  BlockDevice "/:hdb/"
  IgnoreSelected "true"
+ BlockDeviceFormat "target"
 
-Ignore all I<hdb> devices on any domain, but other block devices (eg. I<hda>)
-will be collected.
+B<Example 2:>
+
+Collect metrics only for block device on 'baremetal0' domain when its
+'source' matches given path:
+
+ BlockDevice "baremetal0:/var/lib/libvirt/images/baremetal0.qcow2"
+ BlockDeviceFormat source
+
+As you can see it is possible to filter devices/interfaces using
+various formats - for block devices 'target' or 'source' name can be
+used.  Interfaces can be filtered using 'name', 'address' or 'number'.
+
+B<Example 3:>
+
+Collect metrics only for domains 'baremetal0' and 'baremetal1' and
+ignore any other domain:
+
+ Domain "baremetal0"
+ Domain "baremetal1"
+
+It is possible to filter multiple block devices/domains/interfaces by
+adding multiple filtering entries in separate lines.
 
 =item B<BlockDeviceFormat> B<target>|B<source>
 
@@ -8869,6 +9427,11 @@ to C<sda>.
 Setting C<BlockDeviceFormat source> will cause the I<type instance> to be set
 to C<var_lib_libvirt_images_image1.qcow2>.
 
+B<Note:> this option determines also what field will be used for
+filtering over block devices (filter value in B<BlockDevice>
+will be applied to target or source). More info about filtering
+block devices can be found in the description of B<BlockDevice>.
+
 =item B<BlockDeviceFormatBasename> B<false>|B<true>
 
 The B<BlockDeviceFormatBasename> controls whether the full path or the
@@ -8883,7 +9446,7 @@ be set to C<var_lib_libvirt_images_image1.qcow2>.
 Setting C<BlockDeviceFormatBasename true> will cause the I<type instance> to be
 set to C<image1.qcow2>.
 
-=item B<HostnameFormat> B<name|uuid|hostname|...>
+=item B<HostnameFormat> B<name|uuid|hostname|metadata...>
 
 When the virt plugin logs data, it sets the hostname of the collected data
 according to this setting. The default is to use the guest name as provided by
@@ -8893,7 +9456,11 @@ B<uuid> means use the guest's UUID. This is useful if you want to track the
 same guest across migrations.
 
 B<hostname> means to use the global B<Hostname> setting, which is probably not
-useful on its own because all guests will appear to have the same name.
+useful on its own because all guests will appear to have the same name. This is
+useful in conjunction with B<PluginInstanceFormat> though.
+
+B<metadata> means use information from guest's metadata. Use
+B<HostnameMetadataNS> and B<HostnameMetadataXPath> to localize this information.
 
 You can also specify combinations of these fields. For example B<name uuid>
 means to concatenate the guest name and UUID (with a literal colon character
@@ -8903,7 +9470,7 @@ At the moment of writing (collectd-5.5), hostname string is limited to 62
 characters. In case when combination of fields exceeds 62 characters,
 hostname will be truncated without a warning.
 
-=item B<InterfaceFormat> B<name>|B<address>
+=item B<InterfaceFormat> B<name>|B<address>|B<number>
 
 When the virt plugin logs interface data, it sets the name of the collected
 data according to this setting. The default is to use the path as provided by
@@ -8913,23 +9480,47 @@ setting B<name>.
 B<address> means use the interface's mac address. This is useful since the
 interface path might change between reboots of a guest or across migrations.
 
-=item B<PluginInstanceFormat> B<name|uuid|none>
+B<number> means use the interface's number in guest.
+
+B<Note:> this option determines also what field will be used for
+filtering over interface device (filter value in B<InterfaceDevice>
+will be applied to name, address or number).  More info about filtering
+interfaces can be found in the description of B<InterfaceDevice>.
+
+=item B<PluginInstanceFormat> B<name|uuid|metadata|none>
 
 When the virt plugin logs data, it sets the plugin_instance of the collected
 data according to this setting. The default is to not set the plugin_instance.
 
 B<name> means use the guest's name as provided by the hypervisor.
 B<uuid> means use the guest's UUID.
+B<metadata> means use information from guest's metadata.
 
 You can also specify combinations of the B<name> and B<uuid> fields.
 For example B<name uuid> means to concatenate the guest name and UUID
 (with a literal colon character between, thus I<"foo:1234-1234-1234-1234">).
 
-=item B<Instances> B<integer>
+=item B<HostnameMetadataNS> B<string>
 
-How many read instances you want to use for this plugin. The default is one,
-and the sensible setting is a multiple of the B<ReadThreads> value.
-If you are not sure, just use the default setting.
+When B<metadata> is used in B<HostnameFormat> or B<PluginInstanceFormat>, this
+selects in which metadata namespace we will pick the hostname. The default is
+I<http://openstack.org/xmlns/libvirt/nova/1.0>.
+
+=item B<HostnameMetadataXPath> B<string>
+
+When B<metadata> is used in B<HostnameFormat> or B<PluginInstanceFormat>, this
+describes where the hostname is located in the libvirt metadata. The default is
+I</instance/name/text()>.
+
+=item B<ReportBlockDevices> B<true>|B<false>
+
+Enabled by default. Allows to disable stats reporting of block devices for
+whole plugin.
+
+=item B<ReportNetworkInterfaces> B<true>|B<false>
+
+Enabled by default. Allows to disable stats reporting of network interfaces for
+whole plugin.
 
 =item B<ExtraStats> B<string>
 
@@ -8951,9 +9542,7 @@ I<0.9.5> or later.
 =item B<disk_err>: report disk errors if any occured. Requires libvirt API version
 I<0.9.10> or later.
 
-=item B<domain_state>: report domain state and reason in human-readable format as
-a notification. If libvirt API version I<0.9.2> or later is available, domain
-reason will be included in notification.
+=item B<domain_state>: report domain state and reason as 'domain_state' metric.
 
 =item B<fs_info>: report file system information as a notification. Requires
 libvirt API version I<1.2.11> or later. Can be collected only if I<Guest Agent>
@@ -8968,6 +9557,9 @@ Requires libvirt API version I<1.2.9> or later.
 a domain. Only one type of job statistics can be collected at the same time.
 Requires libvirt API version I<1.2.9> or later.
 
+=item B<memory>: report statistics about memory usage details, provided
+by libvirt virDomainMemoryStats() function.
+
 =item B<pcpu>: report the physical user/system cpu time consumed by the hypervisor, per-vm.
 Requires libvirt API version I<0.9.11> or later.
 
@@ -8976,9 +9568,56 @@ metrics they must be enabled for domain and supported by the platform. Requires
 libvirt API version I<1.3.3> or later.
 B<Note>: I<perf> metrics can't be collected if I<intel_rdt> plugin is enabled.
 
+=item B<vcpu>: report domain virtual CPUs utilisation.
+
 =item B<vcpupin>: report pinning of domain VCPUs to host physical CPUs.
 
+=item B<disk_physical>: report 'disk_physical' statistic for disk device.
+B<Note>: This statistic is only reported for disk devices with 'source'
+property available.
+
+=item B<disk_allocation>: report 'disk_allocation' statistic for disk device.
+B<Note>: This statistic is only reported for disk devices with 'source'
+property available.
+
+=item B<disk_capacity>: report 'disk_capacity' statistic for disk device.
+B<Note>: This statistic is only reported for disk devices with 'source'
+property available.
+
 =back
+
+=item B<PersistentNotification> B<true>|B<false>
+
+Override default configuration to only send notifications when there is a change
+in the lifecycle state of a domain. When set to true notifications will be sent
+for every read cycle. Default is false. Does not affect the stats being
+dispatched.
+
+=item B<Instances> B<integer>
+
+How many read instances you want to use for this plugin. The default is one,
+and the sensible setting is a multiple of the B<ReadThreads> value.
+
+This option is only useful when domains are specially tagged.
+If you are not sure, just use the default setting.
+
+The reader instance will only query the domains with attached matching tag.
+Tags should have the form of 'virt-X' where X is the reader instance number,
+starting from 0.
+
+The special-purpose reader instance #0, guaranteed to be always present,
+will query all the domains with missing or unrecognized tag, so no domain will
+ever be left out.
+
+Domain tagging is done with a custom attribute in the libvirt domain metadata
+section. Value is selected by an XPath I</domain/metadata/ovirtmap/tag/text()>
+expression in the I<http://ovirt.org/ovirtmap/tag/1.0> namespace.
+(XPath and namespace values are not configurable yet).
+
+Tagging could be used by management applications to evenly spread the
+load among the reader threads, or to pin on the same threads all
+the libvirt domains which use the same shared storage, to minimize
+the disruption in presence of storage outages.
 
 =back
 
@@ -9033,6 +9672,8 @@ Synopsis:
      Protocol "tcp"
      LogSendErrors true
      Prefix "collectd"
+     UseTags false
+     ReverseHost false
    </Node>
  </Plugin>
 
@@ -9070,13 +9711,20 @@ approach and logging errors fills syslog with unneeded messages.
 
 =item B<Prefix> I<String>
 
-When set, I<String> is added in front of the host name. Dots and whitespace are
-I<not> escaped in this string (see B<EscapeCharacter> below).
+When B<UseTags> is I<false>, B<Prefix> value is added in front of the host name.
+When B<UseTags> is I<true>, B<Prefix> value is added in front of series name.
+
+Dots and whitespace are I<not> escaped in this string (see B<EscapeCharacter>
+below).
 
 =item B<Postfix> I<String>
 
-When set, I<String> is appended to the host name. Dots and whitespace are
-I<not> escaped in this string (see B<EscapeCharacter> below).
+When B<UseTags> is I<false>, B<Postfix> value appended to the host name.
+When B<UseTags> is I<true>, B<Postgix> value appended to the end of series name
+(before the first ; that separates the name from the tags).
+
+Dots and whitespace are I<not> escaped in this string (see B<EscapeCharacter>
+below).
 
 =item B<EscapeCharacter> I<Char>
 
@@ -9098,6 +9746,8 @@ path component, for example C<host.cpu.0.cpu.idle>. If set to B<false> (the
 default), the plugin and plugin instance (and likewise the type and type
 instance) are put into one component, for example C<host.cpu-0.cpu-idle>.
 
+Option value is not used when B<UseTags> is I<true>.
+
 =item B<AlwaysAppendDS> B<false>|B<true>
 
 If set to B<true>, append the name of the I<Data Source> (DS) to the "metric"
@@ -9110,11 +9760,54 @@ If set to B<false> (the default) the C<.> (dot) character is replaced with
 I<EscapeCharacter>. Otherwise, if set to B<true>, the C<.> (dot) character
 is preserved, i.e. passed through.
 
+Option value is not used when B<UseTags> is I<true>.
+
 =item B<DropDuplicateFields> B<false>|B<true>
 
 If set to B<true>, detect and remove duplicate components in Graphite metric
 names. For example, the metric name  C<host.load.load.shortterm> will
 be shortened to C<host.load.shortterm>.
+
+=item B<UseTags> B<false>|B<true>
+
+If set to B<true>, Graphite metric names will be generated as tagged series.
+This allows for much more flexibility than the traditional hierarchical layout.
+
+Example:
+C<test.single;host=example.com;plugin=test;plugin_instance=foo;type=single;type_instance=bar>
+
+You can use B<Postfix> option to add more tags by specifying it like
+C<;tag1=value1;tag2=value2>. Note what tagging support was added since Graphite
+version 1.1.x.
+
+If set to B<true>, the B<SeparateInstances> and B<PreserveSeparator> settings
+are not used.
+
+Default value: B<false>.
+
+=item B<ReverseHost> B<false>|B<true>
+
+If set to B<true>, the (dot separated) parts of the B<host> field of the
+I<value list> will be rewritten in reverse order. The rewrite happens I<before>
+special characters are replaced with the B<EscapeCharacter>.
+
+This option might be convenient if the metrics are presented with Graphite in a
+DNS like tree structure (probably without replacing dots in hostnames).
+
+Example:
+ Hostname "node3.cluster1.example.com"
+ LoadPlugin "cpu"
+ LoadPlugin "write_graphite"
+ <Plugin "write_graphite">
+  <Node "graphite.example.com">
+   EscapeCharacter "."
+   ReverseHost true
+  </Node>
+ </Plugin>
+
+ result on the wire: com.example.cluster1.node3.cpu-0.cpu-idle 99.900993 1543010932
+
+Default value: B<false>.
 
 =back
 
@@ -9283,6 +9976,13 @@ using I<Prometheus>.
 B<Options:>
 
 =over 4
+
+=item B<Host> I<Host>
+
+Bind to the hostname / address I<Host>. By default, the plugin will bind to the
+"any" address, i.e. accept packets sent to any of the hosts addresses.
+
+This option is supported only for libmicrohttpd newer than 0.9.0.
 
 =item B<Port> I<Port>
 
@@ -9541,16 +10241,25 @@ been set to B<JSON>.
 =item B<GraphitePrefix> (B<Format>=I<Graphite> only)
 
 A prefix can be added in the metric name when outputting in the I<Graphite>
-format. It's added before the I<Host> name.
+format.
+
+When B<GraphiteUseTags> is I<false>, prefix is added before the I<Host> name.
 Metric name will be
 C<E<lt>prefixE<gt>E<lt>hostE<gt>E<lt>postfixE<gt>E<lt>pluginE<gt>E<lt>typeE<gt>E<lt>nameE<gt>>
+
+When B<GraphiteUseTags> is I<true>, prefix is added in front of series name.
 
 =item B<GraphitePostfix> (B<Format>=I<Graphite> only)
 
 A postfix can be added in the metric name when outputting in the I<Graphite>
-format. It's added after the I<Host> name.
+format.
+
+When B<GraphiteUseTags> is I<false>, postfix is added after the I<Host> name.
 Metric name will be
 C<E<lt>prefixE<gt>E<lt>hostE<gt>E<lt>postfixE<gt>E<lt>pluginE<gt>E<lt>typeE<gt>E<lt>nameE<gt>>
+
+When B<GraphiteUseTags> is I<true>, prefix value appended to the end of series
+name (before the first ; that separates the name from the tags).
 
 =item B<GraphiteEscapeChar> (B<Format>=I<Graphite> only)
 
@@ -9566,6 +10275,8 @@ path component, for example C<host.cpu.0.cpu.idle>. If set to B<false> (the
 default), the plugin and plugin instance (and likewise the type and type
 instance) are put into one component, for example C<host.cpu-0.cpu-idle>.
 
+Option value is not used when B<GraphiteUseTags> is I<true>.
+
 =item B<GraphiteAlwaysAppendDS> B<true>|B<false>
 
 If set to B<true>, append the name of the I<Data Source> (DS) to the "metric"
@@ -9577,6 +10288,14 @@ more than one DS.
 If set to B<false> (the default) the C<.> (dot) character is replaced with
 I<GraphiteEscapeChar>. Otherwise, if set to B<true>, the C<.> (dot) character
 is preserved, i.e. passed through.
+
+Option value is not used when B<GraphiteUseTags> is I<true>.
+
+=item B<GraphiteUseTags> B<false>|B<true>
+
+If set to B<true> Graphite metric names will be generated as tagged series.
+
+Default value: B<false>.
 
 =item B<StoreRates> B<true>|B<false>
 
@@ -9935,6 +10654,268 @@ I<Sensu>.
 
 Consider the two given strings to be the key and value of an additional
 attribute for each metric being sent out to I<Sensu>.
+
+=back
+
+=head2 Plugin C<write_stackdriver>
+
+The C<write_stackdriver> plugin writes metrics to the
+I<Google Stackdriver Monitoring> service.
+
+This plugin supports two authentication methods: When configured, credentials
+are read from the JSON credentials file specified with B<CredentialFile>.
+Alternatively, when running on
+I<Google Compute Engine> (GCE), an I<OAuth> token is retrieved from the
+I<metadata server> and used to authenticate to GCM.
+
+B<Synopsis:>
+
+ <Plugin write_stackdriver>
+   CredentialFile "/path/to/service_account.json"
+   <Resource "global">
+     Label "project_id" "monitored_project"
+   </Resource>
+ </Plugin>
+
+=over 4
+
+=item B<CredentialFile> I<file>
+
+Path to a JSON credentials file holding the credentials for a GCP service
+account.
+
+If B<CredentialFile> is not specified, the plugin uses I<Application Default
+Credentials>. That means which credentials are used depends on the environment:
+
+=over 4
+
+=item
+
+The environment variable C<GOOGLE_APPLICATION_CREDENTIALS> is checked. If this
+variable is specified it should point to a JSON file that defines the
+credentials.
+
+=item
+
+The path C<${HOME}/.config/gcloud/application_default_credentials.json> is
+checked. This where credentials used by the I<gcloud> command line utility are
+stored. You can use C<gcloud auth application-default login> to create these
+credentials.
+
+Please note that these credentials are often of your personal account, not a
+service account, and are therefore unfit to be used in a production
+environment.
+
+=item
+
+When running on GCE, the built-in service account associated with the virtual
+machine instance is used.
+See also the B<Email> option below.
+
+=back
+
+=item B<Project> I<Project>
+
+The I<Project ID> or the I<Project Number> of the I<Stackdriver Account>. The
+I<Project ID> is a string identifying the GCP project, which you can chose
+freely when creating a new project. The I<Project Number> is a 12-digit decimal
+number. You can look up both on the I<Developer Console>.
+
+This setting is optional. If not set, the project ID is read from the
+credentials file or determined from the GCE's metadata service.
+
+=item B<Email> I<Email> (GCE only)
+
+Choses the GCE I<Service Account> used for authentication.
+
+Each GCE instance has a C<default> I<Service Account> but may also be
+associated with additional I<Service Accounts>. This is often used to restrict
+the permissions of services running on the GCE instance to the required
+minimum. The I<write_stackdriver plugin> requires the
+C<https://www.googleapis.com/auth/monitoring> scope. When multiple I<Service
+Accounts> are available, this option selects which one is used by
+I<write_stackdriver plugin>.
+
+=item B<Resource> I<ResourceType>
+
+Configures the I<Monitored Resource> to use when storing metrics.
+More information on I<Monitored Resources> and I<Monitored Resource Types> are
+available at L<https://cloud.google.com/monitoring/api/resources>.
+
+This block takes one string argument, the I<ResourceType>. Inside the block are
+one or more B<Label> options which configure the resource labels.
+
+This block is optional. The default value depends on the runtime environment:
+on GCE, the C<gce_instance> resource type is used, otherwise the C<global>
+resource type ist used:
+
+=over 4
+
+=item
+
+B<On GCE>, defaults to the equivalent of this config:
+
+  <Resource "gce_instance">
+    Label "project_id" "<project_id>"
+    Label "instance_id" "<instance_id>"
+    Label "zone" "<zone>"
+  </Resource>
+
+The values for I<project_id>, I<instance_id> and I<zone> are read from the GCE
+metadata service.
+
+=item
+
+B<Elsewhere>, i.e. not on GCE, defaults to the equivalent of this config:
+
+  <Resource "global">
+    Label "project_id" "<Project>"
+  </Resource>
+
+Where I<Project> refers to the value of the B<Project> option or the project ID
+inferred from the B<CredentialFile>.
+
+=back
+
+=item B<Url> I<Url>
+
+URL of the I<Stackdriver Monitoring> API. Defaults to
+C<https://monitoring.googleapis.com/v3>.
+
+=back
+
+=head2 Plugin C<write_syslog>
+
+The C<write_syslog> plugin writes data in I<syslog> format log messages.
+It implements the basic syslog protocol, RFC 5424, extends it with
+content-based filtering, rich filtering capabilities,
+flexible configuration options and adds features such as using TCP for transport.
+The plugin can connect to a I<Syslog> daemon, like syslog-ng and rsyslog, that will
+ingest metrics, transform and ship them to the specified output.
+The plugin uses I<TCP> over the "line based" protocol with a default port 44514.
+The data will be sent in blocks of at most 1428 bytes to minimize the number of
+network packets.
+
+Synopsis:
+
+ <Plugin write_syslog>
+   ResolveInterval 60
+   ResolveJitter 60
+   <Node "example">
+     Host "syslog-1.my.domain"
+     Port "44514"
+     Prefix "collectd"
+     MessageFormat "human"
+     HostTags ""
+   </Node>
+ </Plugin>
+
+The configuration consists of one or more E<lt>B<Node>E<nbsp>I<Name>E<gt>
+blocks and global directives.
+
+Global directives are:
+
+=over 4
+
+=item B<ResolveInterval> I<seconds>
+
+=item B<ResolveJitter> I<seconds>
+
+When I<collectd> connects to a syslog node, it will request the hostname from
+DNS. This can become a problem if the syslog node is unavailable or badly
+configured because collectd will request DNS in order to reconnect for every
+metric, which can flood your DNS. So you can cache the last value for
+I<ResolveInterval> seconds.
+Defaults to the I<Interval> of the I<write_syslog plugin>, e.g. 10E<nbsp>seconds.
+
+You can also define a jitter, a random interval to wait in addition to
+I<ResolveInterval>. This prevents all your collectd servers to resolve the
+hostname at the same time when the connection fails.
+Defaults to the I<Interval> of the I<write_syslog plugin>, e.g. 10E<nbsp>seconds.
+
+B<Note:> If the DNS resolution has already been successful when the socket
+closes, the plugin will try to reconnect immediately with the cached
+information. DNS is queried only when the socket is closed for a longer than
+I<ResolveInterval> + I<ResolveJitter> seconds.
+
+=back
+
+Inside the B<Node> blocks, the following options are recognized:
+
+=over 4
+
+=item B<Host> I<Address>
+
+Hostname or address to connect to. Defaults to C<localhost>.
+
+=item B<Port> I<Service>
+
+Service name or port number to connect to. Defaults to C<44514>.
+
+
+=item B<HostTags> I<String>
+
+When set, I<HostTags> is added to the end of the metric.
+It is intended to be used for adding additional metadata to tag the metric with.
+Dots and whitespace are I<not> escaped in this string.
+
+Examples:
+
+When MessageFormat is set to "human".
+
+  ["prefix1" "example1"="example1_v"]["prefix2" "example2"="example2_v"]"
+
+When MessageFormat is set to "JSON", text should be in JSON format.
+Escaping the quotation marks is required.
+
+  HostTags "\"prefix1\": {\"example1\":\"example1_v\",\"example2\":\"example2_v\"}"
+
+=item B<MessageFormat> I<String>
+
+I<MessageFormat> selects the format in which messages are sent to the
+syslog deamon, human or JSON. Defaults to human.
+
+Syslog message format:
+
+<priority>VERSION ISOTIMESTAMP HOSTNAME APPLICATION PID MESSAGEID STRUCTURED-DATA MSG
+
+The difference between the message formats are in the STRUCTURED-DATA and MSG parts.
+
+Human format:
+
+  <166>1 ISOTIMESTAMP HOSTNAME collectd PID MESSAGEID
+  ["collectd" "value": "v1" "plugin"="plugin_v" "plugin_instance"="plugin_instance_v"
+  "type_instance"="type_instance_v" "type"="type_v" "ds_name"="ds_name_v" "interval"="interval_v" ]
+  "host_tag_example"="host_tag_example_v" plugin_v.type_v.ds_name_v="v1"
+
+JSON format:
+
+  <166>1 ISOTIMESTAMP HOSTNAME collectd PID MESSAGEID STRUCTURED-DATA
+  {
+    "collectd": {
+    "time": time_as_epoch, "interval": interval_v, "plugin": "plugin_v",
+    "plugin_instance": "plugin_instance_v", "type":"type_v",
+    "type_instance": "type_instance_v", "plugin_v": {"type_v": v1}
+    } , "host":"host_v", "host_tag_example": "host_tag_example_v"
+  }
+
+=item B<StoreRates> B<false>|B<true>
+
+If set to B<true>, convert counter values to rates. If set to B<false>
+(the default) counter values are stored as is, as an increasing
+integer number.
+
+=item B<AlwaysAppendDS> B<false>|B<true>
+
+If set to B<true>, append the name of the I<Data Source> (DS) to the "metric"
+identifier. If set to B<false> (the default), this is only done when there is
+more than one DS.
+
+=item B<Prefix> I<String>
+
+When set, I<Prefix> is added to all metrics names as a prefix. It is intended in
+case you want to be able to define the source of the specific metric. Dots and
+whitespace are I<not> escaped in this string.
 
 =back
 
@@ -10926,7 +11907,7 @@ be an FQDN.
 =head1 IGNORELISTS
 
 B<Ignorelists> are a generic framework to either ignore some metrics or report
-specific metircs only. Plugins usually provide one or more options to specify
+specific metrics only. Plugins usually provide one or more options to specify
 the items (mounts points, devices, ...) and the boolean option
 C<IgnoreSelected>.
 

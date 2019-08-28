@@ -28,11 +28,11 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
+#include "utils/common/common.h"
 
-#include "utils_cmd_putnotif.h"
-#include "utils_cmd_putval.h"
+#include "utils/cmds/putnotif.h"
+#include "utils/cmds/putval.h"
 
 #include <grp.h>
 #include <pwd.h>
@@ -85,7 +85,7 @@ const long int MAX_GRBUF_SIZE = 65536;
 /*
  * Private variables
  */
-static program_list_t *pl_head = NULL;
+static program_list_t *pl_head;
 static pthread_mutex_t pl_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /*
@@ -413,9 +413,7 @@ static int getegr_id(program_list_t *pl, int gid) /* {{{ */
     } else if (errno == ERANGE) {
       grbuf_size += grbuf_size; // increment buffer size and try again
     } else {
-      char errbuf[1024];
-      ERROR("exec plugin: getegr_id failed %s",
-            sstrerror(errno, errbuf, sizeof(errbuf)));
+      ERROR("exec plugin: getegr_id failed %s", STRERRNO);
       sfree(grbuf);
       return -2;
     }
@@ -423,7 +421,7 @@ static int getegr_id(program_list_t *pl, int gid) /* {{{ */
   ERROR("exec plugin: getegr_id Max grbuf size reached  for %s", pl->group);
   sfree(grbuf);
   return -2;
-} /* }}} */
+}
 
 /*
  * Creates three pipes (one for reading, one for writing and one for errors),
@@ -481,6 +479,8 @@ static int fork_child(program_list_t *pl, int *fd_in, int *fd_out,
     goto failed;
   }
 
+  /* The group configured in the configfile is set as effective group, because
+   * this way the forked process can (re-)gain the user's primary group. */
   egid = getegr_id(pl, gid);
   if (egid == -2) {
     goto failed;

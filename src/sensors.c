@@ -35,9 +35,9 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
-#include "utils_ignorelist.h"
+#include "utils/common/common.h"
+#include "utils/ignorelist/ignorelist.h"
 
 #if defined(HAVE_SENSORS_SENSORS_H)
 #include <sensors/sensors.h>
@@ -46,90 +46,6 @@
 #if !defined(SENSORS_API_VERSION)
 #define SENSORS_API_VERSION 0x000
 #endif
-
-/*
- * The sensors library prior to version 3.0 (internal version 0x400) didn't
- * report the type of values, only a name. The following lists are there to
- * convert from the names to the type. They are not used with the new
- * interface.
- */
-#if SENSORS_API_VERSION < 0x400
-static char *sensor_type_name_map[] = {
-#define SENSOR_TYPE_VOLTAGE 0
-    "voltage",
-#define SENSOR_TYPE_FANSPEED 1
-    "fanspeed",
-#define SENSOR_TYPE_TEMPERATURE 2
-    "temperature",
-#define SENSOR_TYPE_POWER 3
-    "power",
-#define SENSOR_TYPE_UNKNOWN 4
-    NULL};
-
-struct sensors_labeltypes_s {
-  char *label;
-  int type;
-};
-typedef struct sensors_labeltypes_s sensors_labeltypes_t;
-
-/* finite list of known labels extracted from lm_sensors */
-static sensors_labeltypes_t known_features[] = {
-    {"fan1", SENSOR_TYPE_FANSPEED},
-    {"fan2", SENSOR_TYPE_FANSPEED},
-    {"fan3", SENSOR_TYPE_FANSPEED},
-    {"fan4", SENSOR_TYPE_FANSPEED},
-    {"fan5", SENSOR_TYPE_FANSPEED},
-    {"fan6", SENSOR_TYPE_FANSPEED},
-    {"fan7", SENSOR_TYPE_FANSPEED},
-    {"AIN2", SENSOR_TYPE_VOLTAGE},
-    {"AIN1", SENSOR_TYPE_VOLTAGE},
-    {"in10", SENSOR_TYPE_VOLTAGE},
-    {"in9", SENSOR_TYPE_VOLTAGE},
-    {"in8", SENSOR_TYPE_VOLTAGE},
-    {"in7", SENSOR_TYPE_VOLTAGE},
-    {"in6", SENSOR_TYPE_VOLTAGE},
-    {"in5", SENSOR_TYPE_VOLTAGE},
-    {"in4", SENSOR_TYPE_VOLTAGE},
-    {"in3", SENSOR_TYPE_VOLTAGE},
-    {"in2", SENSOR_TYPE_VOLTAGE},
-    {"in0", SENSOR_TYPE_VOLTAGE},
-    {"CPU_Temp", SENSOR_TYPE_TEMPERATURE},
-    {"remote_temp", SENSOR_TYPE_TEMPERATURE},
-    {"temp1", SENSOR_TYPE_TEMPERATURE},
-    {"temp2", SENSOR_TYPE_TEMPERATURE},
-    {"temp3", SENSOR_TYPE_TEMPERATURE},
-    {"temp4", SENSOR_TYPE_TEMPERATURE},
-    {"temp5", SENSOR_TYPE_TEMPERATURE},
-    {"temp6", SENSOR_TYPE_TEMPERATURE},
-    {"temp7", SENSOR_TYPE_TEMPERATURE},
-    {"temp", SENSOR_TYPE_TEMPERATURE},
-    {"Vccp2", SENSOR_TYPE_VOLTAGE},
-    {"Vccp1", SENSOR_TYPE_VOLTAGE},
-    {"vdd", SENSOR_TYPE_VOLTAGE},
-    {"vid5", SENSOR_TYPE_VOLTAGE},
-    {"vid4", SENSOR_TYPE_VOLTAGE},
-    {"vid3", SENSOR_TYPE_VOLTAGE},
-    {"vid2", SENSOR_TYPE_VOLTAGE},
-    {"vid1", SENSOR_TYPE_VOLTAGE},
-    {"vid", SENSOR_TYPE_VOLTAGE},
-    {"vin4", SENSOR_TYPE_VOLTAGE},
-    {"vin3", SENSOR_TYPE_VOLTAGE},
-    {"vin2", SENSOR_TYPE_VOLTAGE},
-    {"vin1", SENSOR_TYPE_VOLTAGE},
-    {"voltbatt", SENSOR_TYPE_VOLTAGE},
-    {"volt12", SENSOR_TYPE_VOLTAGE},
-    {"volt5", SENSOR_TYPE_VOLTAGE},
-    {"vrm", SENSOR_TYPE_VOLTAGE},
-    {"5.0V", SENSOR_TYPE_VOLTAGE},
-    {"5V", SENSOR_TYPE_VOLTAGE},
-    {"3.3V", SENSOR_TYPE_VOLTAGE},
-    {"2.5V", SENSOR_TYPE_VOLTAGE},
-    {"2.0V", SENSOR_TYPE_VOLTAGE},
-    {"12V", SENSOR_TYPE_VOLTAGE},
-    {"power1", SENSOR_TYPE_POWER}};
-static int known_features_num = STATIC_ARRAY_SIZE(known_features);
-/* end new naming */
-#endif /* SENSORS_API_VERSION < 0x400 */
 
 static const char *config_keys[] = {"Sensor", "IgnoreSelected",
                                     "SensorConfigFile", "UseLabels"};
@@ -157,42 +73,12 @@ typedef struct featurelist {
   struct featurelist *next;
 } featurelist_t;
 
-static char *conffile = NULL;
-static _Bool use_labels = 0;
+static char *conffile;
+static bool use_labels;
 #endif
 
-static featurelist_t *first_feature = NULL;
+static featurelist_t *first_feature;
 static ignorelist_t *sensor_list;
-
-#if SENSORS_API_VERSION < 0x400
-/* full chip name logic borrowed from lm_sensors */
-static int sensors_snprintf_chip_name(char *buf, size_t buf_size,
-                                      const sensors_chip_name *chip) {
-  int status = -1;
-
-  if (chip->bus == SENSORS_CHIP_NAME_BUS_ISA) {
-    status = snprintf(buf, buf_size, "%s-isa-%04x", chip->prefix, chip->addr);
-  } else if (chip->bus == SENSORS_CHIP_NAME_BUS_DUMMY) {
-    status = snprintf(buf, buf_size, "%s-%s-%04x", chip->prefix, chip->busname,
-                      chip->addr);
-  } else {
-    status = snprintf(buf, buf_size, "%s-i2c-%d-%02x", chip->prefix, chip->bus,
-                      chip->addr);
-  }
-
-  return status;
-} /* int sensors_snprintf_chip_name */
-
-static int sensors_feature_name_to_type(const char *name) {
-  /* Yes, this is slow, but it's only ever done during initialization, so
-   * it's a one time cost.. */
-  for (int i = 0; i < known_features_num; i++)
-    if (strcasecmp(known_features[i].label, name) == 0)
-      return known_features[i].type;
-
-  return SENSOR_TYPE_UNKNOWN;
-} /* int sensors_feature_name_to_type */
-#endif
 
 static int sensors_config(const char *key, const char *value) {
   if (sensor_list == NULL)
@@ -220,7 +106,7 @@ static int sensors_config(const char *key, const char *value) {
   }
 #if (SENSORS_API_VERSION >= 0x400)
   else if (strcasecmp(key, "UseLabels") == 0) {
-    use_labels = IS_TRUE(value) ? 1 : 0;
+    use_labels = IS_TRUE(value);
   }
 #endif
   else {
@@ -246,7 +132,7 @@ static void sensors_free_features(void) {
 }
 
 static int sensors_load_conf(void) {
-  static int call_once = 0;
+  static int call_once;
 
   FILE *fh = NULL;
   featurelist_t *last_feature = NULL;
@@ -363,6 +249,9 @@ static int sensors_load_conf(void) {
 #if SENSORS_API_VERSION >= 0x402
           (feature->type != SENSORS_FEATURE_CURR) &&
 #endif
+#if SENSORS_API_VERSION >= 0x431
+          (feature->type != SENSORS_FEATURE_HUMIDITY) &&
+#endif
           (feature->type != SENSORS_FEATURE_POWER)) {
         DEBUG("sensors plugin: sensors_load_conf: "
               "Ignoring feature `%s', "
@@ -381,6 +270,9 @@ static int sensors_load_conf(void) {
             (subfeature->type != SENSORS_SUBFEATURE_TEMP_INPUT) &&
 #if SENSORS_API_VERSION >= 0x402
             (subfeature->type != SENSORS_SUBFEATURE_CURR_INPUT) &&
+#endif
+#if SENSORS_API_VERSION >= 0x431
+            (subfeature->type != SENSORS_SUBFEATURE_HUMIDITY_INPUT) &&
 #endif
             (subfeature->type != SENSORS_SUBFEATURE_POWER_INPUT))
           continue;
@@ -515,6 +407,10 @@ static int sensors_read(void) {
 #if SENSORS_API_VERSION >= 0x402
     else if (fl->feature->type == SENSORS_FEATURE_CURR)
       type = "current";
+#endif
+#if SENSORS_API_VERSION >= 0x431
+    else if (fl->feature->type == SENSORS_FEATURE_HUMIDITY)
+      type = "humidity";
 #endif
     else
       continue;

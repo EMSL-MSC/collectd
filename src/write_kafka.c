@@ -26,11 +26,11 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
-#include "utils_cmd_putval.h"
-#include "utils_format_graphite.h"
-#include "utils_format_json.h"
+#include "utils/cmds/putval.h"
+#include "utils/common/common.h"
+#include "utils/format_graphite/format_graphite.h"
+#include "utils/format_json/format_json.h"
 #include "utils_random.h"
 
 #include <errno.h>
@@ -43,7 +43,7 @@ struct kafka_topic_context {
 #define KAFKA_FORMAT_GRAPHITE 2
   uint8_t format;
   unsigned int graphite_flags;
-  _Bool store_rates;
+  bool store_rates;
   rd_kafka_topic_conf_t *conf;
   rd_kafka_topic_t *topic;
   rd_kafka_conf_t *kafka_conf;
@@ -273,7 +273,7 @@ static void kafka_config_topic(rd_kafka_conf_t *conf,
   }
 
   tctx->escape_char = '.';
-  tctx->store_rates = 1;
+  tctx->store_rates = true;
   tctx->format = KAFKA_FORMAT_JSON;
   tctx->key = NULL;
 
@@ -382,6 +382,10 @@ static void kafka_config_topic(rd_kafka_conf_t *conf,
     } else if (strcasecmp("GraphitePreserveSeparator", child->key) == 0) {
       status = cf_util_get_flag(child, &tctx->graphite_flags,
                                 GRAPHITE_PRESERVE_SEPARATOR);
+
+    } else if (strcasecmp("GraphiteUseTags", child->key) == 0) {
+      status =
+          cf_util_get_flag(child, &tctx->graphite_flags, GRAPHITE_USE_TAGS);
 
     } else if (strcasecmp("GraphitePrefix", child->key) == 0) {
       status = cf_util_get_string(child, &tctx->prefix);

@@ -23,11 +23,11 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
-#include "utils_avltree.h"
+#include "utils/avltree/avltree.h"
+#include "utils/common/common.h"
+#include "utils/curl_stats/curl_stats.h"
 #include "utils_complain.h"
-#include "utils_curl_stats.h"
 
 #include <sys/types.h>
 #include <sys/un.h>
@@ -74,7 +74,7 @@ typedef struct {
  * exists for this part of the JSON structure. */
 typedef struct {
   cj_tree_entry_t *entry;
-  _Bool in_array;
+  bool in_array;
   int index;
   char name[DATA_MAX_NAME_LEN];
 } cj_state_t;
@@ -88,16 +88,16 @@ struct cj_s /* {{{ */
   char *sock;
 
   char *url;
+  int address_family;
   char *user;
   char *pass;
   char *credentials;
-  _Bool digest;
-  _Bool verify_peer;
-  _Bool verify_host;
+  bool digest;
+  bool verify_peer;
+  bool verify_host;
   char *cacert;
   struct curl_slist *headers;
   char *post_body;
-  cdtime_t interval;
   int timeout;
   curl_stats_t *stats;
 
@@ -237,7 +237,7 @@ static int cj_cb_number(void *ctx, const char *number, yajl_len_t number_len) {
   /* Create a null-terminated version of the string. */
   char buffer[number_len + 1];
   memcpy(buffer, number, number_len);
-  buffer[sizeof(buffer) - 1] = 0;
+  buffer[sizeof(buffer) - 1] = '\0';
 
   if (db->state[db->depth].entry == NULL ||
       db->state[db->depth].entry->type != KEY) {
@@ -256,7 +256,6 @@ static int cj_cb_number(void *ctx, const char *number, yajl_len_t number_len) {
   value_t vt;
   int status = parse_value(buffer, &vt, type);
   if (status != 0) {
-    NOTICE("curl_json plugin: Unable to parse number: \"%s\"", buffer);
     cj_advance_array(ctx);
     return CJ_CB_CONTINUE;
   }
@@ -274,7 +273,7 @@ static int cj_cb_map_key(void *ctx, unsigned char const *in_name,
   char name[in_name_len + 1];
 
   memmove(name, in_name, in_name_len);
-  name[sizeof(name) - 1] = 0;
+  name[sizeof(name) - 1] = '\0';
 
   if (cj_load_key(ctx, name) != 0)
     return CJ_CB_ABORT;
@@ -325,7 +324,7 @@ static int cj_cb_start_array(void *ctx) {
     return CJ_CB_ABORT;
   }
   db->depth++;
-  db->state[db->depth].in_array = 1;
+  db->state[db->depth].in_array = true;
   db->state[db->depth].index = 0;
 
   cj_load_key(db, "0");
@@ -335,7 +334,7 @@ static int cj_cb_start_array(void *ctx) {
 
 static int cj_cb_end_array(void *ctx) {
   cj_t *db = (cj_t *)ctx;
-  db->state[db->depth].in_array = 0;
+  db->state[db->depth].in_array = false;
   return cj_cb_end(ctx);
 }
 
@@ -584,6 +583,7 @@ static int cj_init_curl(cj_t *db) /* {{{ */
   curl_easy_setopt(db->curl, CURLOPT_ERRORBUFFER, db->curl_errbuf);
   curl_easy_setopt(db->curl, CURLOPT_FOLLOWLOCATION, 1L);
   curl_easy_setopt(db->curl, CURLOPT_MAXREDIRS, 50L);
+  curl_easy_setopt(db->curl, CURLOPT_IPRESOLVE, db->address_family);
 
   if (db->user != NULL) {
 #ifdef HAVE_CURLOPT_USERNAME
@@ -624,9 +624,6 @@ static int cj_init_curl(cj_t *db) /* {{{ */
 #ifdef HAVE_CURLOPT_TIMEOUT_MS
   if (db->timeout >= 0)
     curl_easy_setopt(db->curl, CURLOPT_TIMEOUT_MS, (long)db->timeout);
-  else if (db->interval > 0)
-    curl_easy_setopt(db->curl, CURLOPT_TIMEOUT_MS,
-                     (long)CDTIME_T_TO_MS(db->interval));
   else
     curl_easy_setopt(db->curl, CURLOPT_TIMEOUT_MS,
                      (long)CDTIME_T_TO_MS(plugin_get_interval()));
@@ -639,6 +636,7 @@ static int cj_config_add_url(oconfig_item_t *ci) /* {{{ */
 {
   cj_t *db;
   int status = 0;
+  cdtime_t interval = 0;
 
   if ((ci->values_num != 1) || (ci->values[0].type != OCONFIG_TYPE_STRING)) {
     WARNING("curl_json plugin: The `URL' block "
@@ -653,6 +651,7 @@ static int cj_config_add_url(oconfig_item_t *ci) /* {{{ */
   }
 
   db->timeout = -1;
+  db->address_family = CURL_IPRESOLVE_WHATEVER;
 
   if (strcasecmp("URL", ci->key) == 0)
     status = cf_util_get_string(ci, &db->url);
@@ -699,13 +698,38 @@ static int cj_config_add_url(oconfig_item_t *ci) /* {{{ */
     else if (strcasecmp("Key", child->key) == 0)
       status = cj_config_add_key(db, child);
     else if (strcasecmp("Interval", child->key) == 0)
-      status = cf_util_get_cdtime(child, &db->interval);
+      status = cf_util_get_cdtime(child, &interval);
     else if (strcasecmp("Timeout", child->key) == 0)
       status = cf_util_get_int(child, &db->timeout);
     else if (strcasecmp("Statistics", child->key) == 0) {
       db->stats = curl_stats_from_config(child);
       if (db->stats == NULL)
         status = -1;
+    } else if (db->url && strcasecmp("AddressFamily", child->key) == 0) {
+      char *af = NULL;
+      status = cf_util_get_string(child, &af);
+      if (status != 0 || af == NULL) {
+        WARNING("curl_json plugin: Cannot parse value of `%s' for URL `%s'.",
+                child->key, db->url);
+      } else if (strcasecmp("any", af) == 0) {
+        db->address_family = CURL_IPRESOLVE_WHATEVER;
+      } else if (strcasecmp("ipv4", af) == 0) {
+        db->address_family = CURL_IPRESOLVE_V4;
+      } else if (strcasecmp("ipv6", af) == 0) {
+        /* If curl supports ipv6, use it. If not, log a warning and
+         * fall back to default - don't set status to non-zero.
+         */
+        curl_version_info_data *curl_info = curl_version_info(CURLVERSION_NOW);
+        if (curl_info->features & CURL_VERSION_IPV6)
+          db->address_family = CURL_IPRESOLVE_V6;
+        else
+          WARNING("curl_json plugin: IPv6 not supported by this libCURL. "
+                  "Using fallback `any'.");
+      } else {
+        WARNING("curl_json plugin: Unsupported value of `%s' for URL `%s'.",
+                child->key, db->url);
+        status = -1;
+      }
     } else {
       WARNING("curl_json plugin: Option `%s' not allowed here.", child->key);
       status = -1;
@@ -737,8 +761,7 @@ static int cj_config_add_url(oconfig_item_t *ci) /* {{{ */
     cb_name = ssnprintf_alloc("curl_json-%s-%s", db->instance,
                               db->url ? db->url : db->sock);
 
-    plugin_register_complex_read(/* group = */ NULL, cb_name, cj_read,
-                                 /* interval = */ db->interval,
+    plugin_register_complex_read(/* group = */ NULL, cb_name, cj_read, interval,
                                  &(user_data_t){
                                      .data = db, .free_func = cj_free,
                                  });
@@ -815,9 +838,6 @@ static void cj_submit_impl(cj_t *db, cj_key_t *key, value_t *value) /* {{{ */
            sizeof(vl.plugin));
   sstrncpy(vl.plugin_instance, db->instance, sizeof(vl.plugin_instance));
   sstrncpy(vl.type, key->type, sizeof(vl.type));
-
-  if (db->interval > 0)
-    vl.interval = db->interval;
 
   plugin_dispatch_values(&vl);
 } /* }}} int cj_submit_impl */

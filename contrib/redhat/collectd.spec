@@ -38,9 +38,13 @@
 %global _hardened_build 1
 %{?perl_default_filter}
 
+# disable collectd debug by default
+%bcond_with debug
+
 # plugins enabled by default
 %define with_aggregation 0%{!?_without_aggregation:1}
 %define with_amqp 0%{!?_without_amqp:1}
+%define with_amqp1 0%{!?_without_amqp1:1}
 %define with_apache 0%{!?_without_apache:1}
 %define with_apcups 0%{!?_without_apcups:1}
 %define with_ascent 0%{!?_without_ascent:1}
@@ -160,6 +164,7 @@
 %define with_write_redis 0%{!?_without_write_redis:1}
 %define with_write_riemann 0%{!?_without_write_riemann:1}
 %define with_write_sensu 0%{!?_without_write_sensu:1}
+%define with_write_syslog 0%{!?_without_write_syslog:1}
 %define with_write_tsdb 0%{!?_without_write_tsdb:1}
 %define with_xmms 0%{!?_without_xmms:0%{?_has_xmms}}
 %define with_zfs_arc 0%{!?_without_zfs_arc:1}
@@ -251,7 +256,7 @@
 Summary:	Statistics collection and monitoring daemon
 Name:		collectd
 Version:	5.7.1
-Release:	8%{?dist}
+Release:	9%{?dist}
 URL:		https://collectd.org
 Source:		https://collectd.org/files/%{name}-%{version}.tar.bz2
 License:	GPLv2
@@ -280,13 +285,24 @@ every 10 seconds by default.
 
 %if %{with_amqp}
 %package amqp
-Summary:	AMQP plugin for collectd
+Summary:	AMQP 0.9 plugin for collectd
 Group:		System Environment/Daemons
 Requires:	%{name}%{?_isa} = %{version}-%{release}
 BuildRequires:	librabbitmq-devel
 %description amqp
-The AMQP plugin transmits or receives values collected by collectd via the
-Advanced Message Queuing Protocol (AMQP).
+The AMQP 0.9 plugin transmits or receives values collected by collectd via the
+Advanced Message Queuing Protocol v0.9 (AMQP).
+%endif
+
+%if %{with_amqp1}
+%package amqp1
+Summary:	AMQP 1.0 plugin for collectd
+Group:		System Environment/Daemons
+Requires:	%{name}%{?_isa} = %{version}-%{release}
+BuildRequires:	qpid-proton-c-devel
+%description amqp1
+The AMQP 1.0 plugin transmits or receives values collected by collectd via the
+Advanced Message Queuing Protocol v1.0 (AMQP1).
 %endif
 
 %if %{with_apache}
@@ -1032,6 +1048,12 @@ Collectd utilities
 %define _with_amqp --disable-amqp
 %endif
 
+%if %{with_amqp1}
+%define _with_amqp1 --enable-amqp1
+%else
+%define _with_amqp1 --disable-amqp1
+%endif
+
 %if %{with_apache}
 %define _with_apache --enable-apache
 %else
@@ -1389,7 +1411,7 @@ Collectd utilities
 %if %{with_mcelog}
 %define _with_mcelog --enable-mcelog
 %else
-%define _with_mbmon --disable-mcelog
+%define _with_mcelog --disable-mcelog
 %endif
 
 %if %{with_md}
@@ -1865,6 +1887,12 @@ Collectd utilities
 %define _with_write_sensu --disable-write_sensu
 %endif
 
+%if %{with_write_syslog}
+%define _with_write_syslog --enable-write_syslog
+%else
+%define _with_write_syslog --disable-write_syslog
+%endif
+
 %if %{with_write_tsdb}
 %define _with_write_tsdb --enable-write_tsdb
 %else
@@ -1901,8 +1929,15 @@ Collectd utilities
 %define _with_zookeeper --disable-zookeeper
 %endif
 
+%if %{with debug}
+%define _feature_debug --enable-debug
+%else
+%define _feature_debug --disable-debug
+%endif
+
 %configure CFLAGS="%{optflags} -DLT_LAZY_OR_NOW=\"RTLD_LAZY|RTLD_GLOBAL\"" \
 	%{?_python_config} \
+	%{?_feature_debug} \
 	--disable-static \
 	--enable-all-plugins=yes \
 	--enable-match_empty_counter \
@@ -1918,6 +1953,7 @@ Collectd utilities
 	--enable-target_v5upgrade \
 	%{?_with_aggregation} \
 	%{?_with_amqp} \
+	%{?_with_amqp1} \
 	%{?_with_apache} \
 	%{?_with_apcups} \
 	%{?_with_apple_sensors} \
@@ -2086,6 +2122,7 @@ Collectd utilities
 	%{?_with_write_redis} \
 	%{?_with_write_riemann} \
 	%{?_with_write_sensu} \
+	%{?_with_write_syslog} \
 	%{?_with_write_tsdb} \
 	%{?_with_xencpu} \
 	%{?_with_xmms} \
@@ -2430,6 +2467,9 @@ fi
 %if %{with_write_log}
 %{_libdir}/%{name}/write_log.so
 %endif
+%if %{with_write_syslog}
+%{_libdir}/%{name}/write_syslog.so
+%endif
 %if %{with_write_sensu}
 %{_libdir}/%{name}/write_sensu.so
 %endif
@@ -2471,6 +2511,11 @@ fi
 %if %{with_amqp}
 %files amqp
 %{_libdir}/%{name}/amqp.so
+%endif
+
+%if %{with_amqp1}
+%files amqp1
+%{_libdir}/%{name}/amqp1.so
 %endif
 
 %if %{with_apache}
@@ -2816,6 +2861,9 @@ fi
 %doc contrib/
 
 %changelog
+* Thu Sep 28 2017 Jakub Jankowski <shasta@toxcorp.com> - 5.7.1-9
+- Fix mbmon/mcelog build options
+
 * Thu Sep 28 2017 xakru <calvinxakru@gmail.com> - 5.7.1-8
 - Add new libcollectdclient/network_parse
 - Add new libcollectdclient/server

@@ -21,18 +21,27 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
-#include "utils_ignorelist.h"
+#include "utils/common/common.h"
+#include "utils/ignorelist/ignorelist.h"
 
-#include <miclib.h>
+#include <MicAccessApi.h>
+#include <MicAccessErrorTypes.h>
+#include <MicAccessTypes.h>
+#include <MicPowerManagerAPI.h>
+#include <MicThermalAPI.h>
 
 #define MAX_MICS 32
 #define MAX_CORES 256
 
-static struct mic_devices_list *mics = NULL;
-static int num_mics = 0;
-static struct mic_device *mic_dev = NULL;
+static MicDeviceOnSystem mics[MAX_MICS];
+static U32 num_mics;
+static HANDLE mic_handle;
+
+static int const therm_ids[] = {
+    eMicThermalDie,  eMicThermalDevMem, eMicThermalFin, eMicThermalFout,
+    eMicThermalVccp, eMicThermalVddg,   eMicThermalVddq};
+static char const *const therm_names[] = {"die",  "devmem", "fin", "fout",
 
 static const char *config_keys[] = {
     "ShowCPU",          "ShowCPUCores", "ShowMemory",
@@ -40,13 +49,13 @@ static const char *config_keys[] = {
     "ShowPower",        "Power",        "IgnoreSelectedPower"};
 static int config_keys_num = STATIC_ARRAY_SIZE(config_keys);
 
-static _Bool show_cpu = 1;
-static _Bool show_cpu_cores = 1;
-static _Bool show_memory = 1;
-static _Bool show_temps = 1;
-static ignorelist_t *temp_ignore = NULL;
-static _Bool show_power = 1;
-static ignorelist_t *power_ignore = NULL;
+static bool show_cpu = true;
+static bool show_cpu_cores = true;
+static bool show_memory = true;
+static bool show_temps = true;
+static ignorelist_t *temp_ignore;
+static bool show_power = true;
+static ignorelist_t *power_ignore;
 
 static int mic_init(void) {
   U32 ret;

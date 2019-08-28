@@ -23,8 +23,8 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
+#include "utils/common/common.h"
 
 #if !KERNEL_LINUX
 #error "No applicable input method."
@@ -59,7 +59,8 @@ static int serial_read(void) {
   while (fgets(buffer, sizeof(buffer), fh) != NULL) {
     derive_t rx = 0;
     derive_t tx = 0;
-    _Bool have_rx = 0, have_tx = 0;
+    bool have_rx = false;
+    bool have_tx = false;
     size_t len;
 
     char *fields[16];
@@ -78,7 +79,7 @@ static int serial_read(void) {
       continue;
     if (fields[0][len - 1] != ':')
       continue;
-    fields[0][len - 1] = 0;
+    fields[0][len - 1] = '\0';
 
     for (int i = 1; i < numfields; i++) {
       len = strlen(fields[i]);
@@ -87,10 +88,10 @@ static int serial_read(void) {
 
       if (strncmp(fields[i], "tx:", 3) == 0) {
         if (strtoderive(fields[i] + 3, &tx) == 0)
-          have_tx = 1;
+          have_tx = true;
       } else if (strncmp(fields[i], "rx:", 3) == 0) {
         if (strtoderive(fields[i] + 3, &rx) == 0)
-          have_rx = 1;
+          have_rx = true;
       }
     }
 

@@ -26,8 +26,8 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
+#include "utils/common/common.h"
 #include "utils_llist.h"
 
 #include <errno.h>
@@ -304,10 +304,10 @@ static statname_lookup_t lookup_table[] = /* {{{ */
         {"uptime", "uptime", NULL}}; /* }}} */
 static int lookup_table_length = STATIC_ARRAY_SIZE(lookup_table);
 
-static llist_t *list = NULL;
+static llist_t *list;
 
 #define PDNS_LOCAL_SOCKPATH LOCALSTATEDIR "/run/" PACKAGE_NAME "-powerdns"
-static char *local_sockpath = NULL;
+static char *local_sockpath;
 
 /* TODO: Do this before 4.4:
  * - Update the collectd.conf(5) manpage.
@@ -359,9 +359,6 @@ static void submit(const char *plugin_instance, /* {{{ */
   }
 
   if (0 != parse_value(value_str, &value, ds->ds[0].type)) {
-    ERROR("powerdns plugin: Cannot convert `%s' "
-          "to a number.",
-          value_str);
     return;
   }
 
@@ -472,7 +469,7 @@ static int powerdns_get_data_dgram(list_item_t *item, char **ret_buffer) {
   }
 
   memcpy(buffer, temp, buffer_size - 1);
-  buffer[buffer_size - 1] = 0;
+  buffer[buffer_size - 1] = '\0';
 
   *ret_buffer = buffer;
   return 0;

@@ -28,8 +28,8 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
+#include "utils/common/common.h"
 
 #include <dirent.h>
 #include <sys/types.h>
@@ -42,7 +42,7 @@
 #error "No applicable input method."
 #endif
 
-static int pagesize = 0;
+static int pagesize;
 
 static int vserver_init(void) {
   /* XXX Should we check for getpagesize () in configure?

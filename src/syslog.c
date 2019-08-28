@@ -26,8 +26,8 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
+#include "utils/common/common.h"
 
 #if HAVE_SYSLOG_H
 #include <syslog.h>
@@ -38,7 +38,7 @@ static int log_level = LOG_DEBUG;
 #else
 static int log_level = LOG_INFO;
 #endif /* COLLECT_DEBUG */
-static int notif_severity = 0;
+static int notif_severity;
 
 static const char *config_keys[] = {
     "LogLevel", "NotifyLevel",

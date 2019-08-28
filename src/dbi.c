@@ -26,9 +26,9 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
-#include "utils_db_query.h"
+#include "utils/common/common.h"
+#include "utils/db_query/db_query.h"
 
 #include <dbi/dbi.h>
 
@@ -54,7 +54,7 @@ struct cdbi_driver_option_s /* {{{ */
     char *string;
     int numeric;
   } value;
-  _Bool is_numeric;
+  bool is_numeric;
 };
 typedef struct cdbi_driver_option_s cdbi_driver_option_t; /* }}} */
 
@@ -63,8 +63,6 @@ struct cdbi_database_s /* {{{ */
   char *name;
   char *select_db;
   char *plugin_name;
-
-  cdtime_t interval;
 
   char *driver;
   char *host;
@@ -83,12 +81,12 @@ typedef struct cdbi_database_s cdbi_database_t; /* }}} */
  * Global variables
  */
 #if !defined(HAVE_LEGACY_LIBDBI) || !HAVE_LEGACY_LIBDBI
-static dbi_inst dbi_instance = 0;
+static dbi_inst dbi_instance;
 #endif
-static udb_query_t **queries = NULL;
-static size_t queries_num = 0;
-static cdbi_database_t **databases = NULL;
-static size_t databases_num = 0;
+static udb_query_t **queries;
+static size_t queries_num;
+static cdbi_database_t **databases;
+static size_t databases_num;
 
 static int cdbi_read_database(user_data_t *ud);
 
@@ -258,7 +256,7 @@ static int cdbi_config_add_database_driver_option(cdbi_database_t *db, /* {{{ */
   } else {
     assert(ci->values[1].type == OCONFIG_TYPE_NUMBER);
     option->value.numeric = (int)(ci->values[1].value.number + .5);
-    option->is_numeric = 1;
+    option->is_numeric = true;
   }
 
   db->driver_options_num++;
@@ -267,6 +265,7 @@ static int cdbi_config_add_database_driver_option(cdbi_database_t *db, /* {{{ */
 
 static int cdbi_config_add_database(oconfig_item_t *ci) /* {{{ */
 {
+  cdtime_t interval = 0;
   cdbi_database_t *db;
   int status;
 
@@ -304,7 +303,7 @@ static int cdbi_config_add_database(oconfig_item_t *ci) /* {{{ */
     else if (strcasecmp("Host", child->key) == 0)
       status = cf_util_get_string(child, &db->host);
     else if (strcasecmp("Interval", child->key) == 0)
-      status = cf_util_get_cdtime(child, &db->interval);
+      status = cf_util_get_cdtime(child, &interval);
     else if (strcasecmp("Plugin", child->key) == 0)
       status = cf_util_get_string(child, &db->plugin_name);
     else {
@@ -370,7 +369,7 @@ static int cdbi_config_add_database(oconfig_item_t *ci) /* {{{ */
           /* group = */ NULL,
           /* name = */ name ? name : db->name,
           /* callback = */ cdbi_read_database,
-          /* interval = */ (db->interval > 0) ? db->interval : 0,
+          /* interval = */ interval,
           &(user_data_t){
               .data = db,
           });
@@ -407,7 +406,7 @@ static int cdbi_config(oconfig_item_t *ci) /* {{{ */
 
 static int cdbi_init(void) /* {{{ */
 {
-  static int did_init = 0;
+  static int did_init;
   int status;
 
   if (did_init != 0)
@@ -547,11 +546,16 @@ static int cdbi_read_database_query(cdbi_database_t *db, /* {{{ */
     sstrncpy(column_names[i], column_name, DATA_MAX_NAME_LEN);
   } /* }}} for (i = 0; i < column_num; i++) */
 
-  udb_query_prepare_result(
+  status = udb_query_prepare_result(
       q, prep_area, (db->host ? db->host : hostname_g),
       /* plugin = */ (db->plugin_name != NULL) ? db->plugin_name : "dbi",
-      db->name, column_names, column_num,
-      /* interval = */ (db->interval > 0) ? db->interval : 0);
+      db->name, column_names, column_num);
+
+  if (status != 0) {
+    ERROR("dbi plugin: udb_query_prepare_result failed with status %i.",
+          status);
+    BAIL_OUT(-1);
+  }
 
   /* 0 = error; 1 = success; */
   status = dbi_result_first_row(res); /* {{{ */
@@ -599,15 +603,16 @@ static int cdbi_read_database_query(cdbi_database_t *db, /* {{{ */
     } /* }}} */
 
     /* Get the next row from the database. */
+    if (!dbi_result_has_next_row(res))
+      break;
+
     status = dbi_result_next_row(res); /* {{{ */
     if (status != 1) {
-      if (dbi_conn_error(db->connection, NULL) != 0) {
-        char errbuf[1024];
-        WARNING("dbi plugin: cdbi_read_database_query (%s, %s): "
-                "dbi_result_next_row failed: %s.",
-                db->name, udb_query_get_name(q),
-                cdbi_strerror(db->connection, errbuf, sizeof(errbuf)));
-      }
+      char errbuf[1024];
+      WARNING("dbi plugin: cdbi_read_database_query (%s, %s): "
+              "dbi_result_next_row failed: %s.",
+              db->name, udb_query_get_name(q),
+              cdbi_strerror(db->connection, errbuf, sizeof(errbuf)));
       break;
     } /* }}} */
   }   /* }}} while (42) */

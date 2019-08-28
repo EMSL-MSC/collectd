@@ -24,9 +24,9 @@
 
 #include "collectd.h"
 
-#include "common.h"
 #include "plugin.h"
-#include "utils_avltree.h"
+#include "utils/avltree/avltree.h"
+#include "utils/common/common.h"
 #include "utils_complain.h"
 
 #if HAVE_SYS_IOCTL_H
@@ -48,12 +48,12 @@ struct value_map_s {
 };
 typedef struct value_map_s value_map_t;
 
-static char **interfaces = NULL;
-static size_t interfaces_num = 0;
+static char **interfaces;
+static size_t interfaces_num;
 
-static c_avl_tree_t *value_map = NULL;
+static c_avl_tree_t *value_map;
 
-static _Bool collect_mapped_only = 0;
+static bool collect_mapped_only;
 
 static int ethstat_add_interface(const oconfig_item_t *ci) /* {{{ */
 {

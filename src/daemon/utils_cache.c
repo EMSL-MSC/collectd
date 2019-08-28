@@ -28,10 +28,10 @@
 
 #include "collectd.h"
 
-#include "common.h"
-#include "meta_data.h"
 #include "plugin.h"
-#include "utils_avltree.h"
+#include "utils/avltree/avltree.h"
+#include "utils/common/common.h"
+#include "utils/metadata/meta_data.h"
 #include "utils_cache.h"
 
 #include <assert.h>
@@ -76,7 +76,7 @@ struct uc_iter_s {
   cache_entry_t *entry;
 };
 
-static c_avl_tree_t *cache_tree = NULL;
+static c_avl_tree_t *cache_tree;
 static pthread_mutex_t cache_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static int cache_compare(const cache_entry_t *a, const cache_entry_t *b) {
@@ -201,7 +201,7 @@ static int uc_insert(const data_set_t *ds, const value_list_t *vl,
   ce->last_time = vl->time;
   ce->last_update = cdtime();
   ce->interval = vl->interval;
-  ce->state = STATE_OKAY;
+  ce->state = STATE_UNKNOWN;
 
   if (c_avl_insert(cache_tree, key_copy, ce) != 0) {
     sfree(key_copy);
@@ -826,9 +826,7 @@ int uc_inc_hits(const data_set_t *ds, const value_list_t *vl, int step) {
  * Iterator interface
  */
 uc_iter_t *uc_get_iterator(void) {
-  uc_iter_t *iter;
-
-  iter = (uc_iter_t *)calloc(1, sizeof(*iter));
+  uc_iter_t *iter = calloc(1, sizeof(*iter));
   if (iter == NULL)
     return NULL;
 
@@ -998,7 +996,7 @@ int uc_meta_data_exists(const value_list_t *vl,
                         const value_list_t *vl, const char *key, double value)
                         UC_WRAP(meta_data_add_double) int uc_meta_data_add_boolean(
                             const value_list_t *vl, const char *key,
-                            _Bool value) UC_WRAP(meta_data_add_boolean)
+                            bool value) UC_WRAP(meta_data_add_boolean)
 
                             int uc_meta_data_get_string(const value_list_t *vl,
                                                         const char *key,
@@ -1014,6 +1012,6 @@ int uc_meta_data_exists(const value_list_t *vl,
                                             const char *key, double *value)
                                             UC_WRAP(meta_data_get_double) int uc_meta_data_get_boolean(
                                                 const value_list_t *vl,
-                                                const char *key, _Bool *value)
+                                                const char *key, bool *value)
                                                 UC_WRAP(meta_data_get_boolean)
 #undef UC_WRAP
