@@ -1292,7 +1292,6 @@ Development files for libcollectdclient
 	--enable-match_timediff \
 	--enable-match_value \
 	--enable-target_notification \
-	--enable-target_rate \
 	--enable-target_replace \
 	--enable-target_scale \
 	--enable-target_set \
@@ -1326,6 +1325,7 @@ Development files for libcollectdclient
 	%{?_with_fscache} \
 	%{?_with_gmond} \
 	%{?_with_hddtemp} \
+	%{?_with_gpu_nvidia} \
 	%{?_with_interface} \
 	%{?_with_ipmi} \
 	%{?_with_iptables} \
@@ -1512,7 +1512,6 @@ fi
 %{_libdir}/%{name}/match_timediff.so
 %{_libdir}/%{name}/match_value.so
 %{_libdir}/%{name}/target_notification.so
-%{_libdir}/%{name}/target_rate.so
 %{_libdir}/%{name}/target_replace.so
 %{_libdir}/%{name}/target_scale.so
 %{_libdir}/%{name}/target_set.so
@@ -1562,6 +1561,9 @@ fi
 %endif
 %if %{with_fscache}
 %{_libdir}/%{name}/fscache.so
+%endif
+%if %{with_gpu_nvidia}
+%{_libdir}/%{name}/gpu_nvidia.so
 %endif
 %if %{with_interface}
 %{_libdir}/%{name}/interface.so
