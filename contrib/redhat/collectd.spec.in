@@ -96,6 +96,7 @@
 
 # disabled plugins
 %define with_apple_sensors 0%{!?_without_apple_sensors:0}
+%define with_gpu_nvidia 0%{!?_without_gpu_nvidia:0}
 %define with_lpar 0%{!?_without_lpar:0}
 %define with_modbus 0%{!?_without_modbus:0}
 %define with_netapp 0%{!?_without_netapp:0}
@@ -266,6 +267,16 @@ The gmond plugin subscribes to a Multicast group to receive data from gmond,
 the client daemon of the Ganglia project.
 %endif
 
+%if %{with_gpu_nvidia}
+%package gpu_nvidia
+Summary:	NVIDIA GPU plugin for collectd
+Group:		System Environment/Daemons
+Requires:	%{name}%{?_isa} = %{version}-%{release}
+BuildRequires:	cuda-nvml-devel
+%description gpu_nvidia
+NVIDIA GPU plugin
+%endif
+
 %if %{with_hddtemp}
 %package hddtemp
 Summary:	Hddtemp plugin for collectd
@@ -322,7 +333,7 @@ This plugin collects information from virtualized guests.
 %endif
 
 %if %{with_llite}
-%package hddtemp
+%package llite
 Summary:	Lutre Lite client plugin for collectd
 Group:		System Environment/Daemons
 Requires:	%{name}%{?_isa} = %{version}-%{release}
@@ -776,6 +787,12 @@ Development files for libcollectdclient
 %define _with_gmond --enable-gmond
 %else
 %define _with_gmond --disable-gmond
+%endif
+
+%if %{with_gpu_nvidia}
+%define _with_gpu_nvidia --enable-gpu_nvidia
+%else
+%define _with_gpu_nvidia --disable-gpu_nvidia
 %endif
 
 %if %{with_hddtemp}
