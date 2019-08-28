@@ -1841,12 +1841,6 @@ target_notification_la_SOURCES = src/target_notification.c
 target_notification_la_LDFLAGS = $(PLUGIN_LDFLAGS)
 endif
 
-if BUILD_PLUGIN_TARGET_RATE
-pkglib_LTLIBRARIES += target_rate.la
-target_rate_la_SOURCES = src/target_rate.c
-target_rate_la_LDFLAGS = $(PLUGIN_LDFLAGS)
-endif
-
 if BUILD_PLUGIN_TARGET_REPLACE
 pkglib_LTLIBRARIES += target_replace.la
 target_replace_la_SOURCES = src/target_replace.c
