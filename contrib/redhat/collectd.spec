@@ -185,6 +185,7 @@
 %define with_dpdkstat 0%{!?_without_dpdkstat:0}
 # plugin grpc disabled, requires protobuf-compiler >= 3.0
 %define with_grpc 0%{!?_without_grpc:0}
+%define with_gpu_nvidia 0%{!?_without_gpu_nvidia:0}
 # plugin lpar disabled, requires AIX
 %define with_lpar 0%{!?_without_lpar:0}
 # plugin intel_pmu disabled, requires libjevents
@@ -480,6 +481,16 @@ Requires:	%{name}%{?_isa} = %{version}-%{release}
 BuildRequires:	protobuf-compiler
 %description grpc
 This plugin embeds a gRPC server into Collectd.
+%endif
+
+%if %{with_gpu_nvidia}
+%package gpu_nvidia
+Summary:    NVIDIA GPU plugin for collectd
+Group:      System Environment/Daemons
+Requires:   %{name}%{?_isa} = %{version}-%{release}
+BuildRequires:  cuda-nvml-devel
+%description gpu_nvidia
+NVIDIA GPU plugin
 %endif
 
 %if %{with_hddtemp}
@@ -1276,6 +1287,12 @@ Collectd utilities
 %define _with_grpc --disable-grpc
 %endif
 
+%if %{with_gpu_nvidia}
+%define _with_gpu_nvidia --enable-gpu_nvidia
+%else
+%define _with_gpu_nvidia --disable-gpu_nvidia
+%endif
+
 %if %{with_hddtemp}
 %define _with_hddtemp --enable-hddtemp
 %else
@@ -1991,6 +2008,7 @@ Collectd utilities
 	%{?_with_gmond} \
 	%{?_with_gps} \
 	%{?_with_grpc} \
+    %{?_with_gpu_nvidia} \
 	%{?_with_hddtemp} \
 	%{?_with_hugepages} \
 	%{?_with_intel_pmu} \
@@ -2611,6 +2629,10 @@ fi
 %if %{with_grpc}
 %files grpc
 %{_libdir}/%{name}/grpc.so
+%endif
+
+%if %{with_gpu_nvidia}
+%{_libdir}/%{name}/gpu_nvidia.so
 %endif
 
 %if %{with_hddtemp}
