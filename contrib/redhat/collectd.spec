@@ -2020,7 +2020,6 @@ Collectd utilities
 	--enable-match_timediff \
 	--enable-match_value \
 	--enable-target_notification \
-	--enable-target_rate \
 	--enable-target_replace \
 	--enable-target_scale \
 	--enable-target_set \
@@ -2335,7 +2334,6 @@ fi
 %{_libdir}/%{name}/match_timediff.so
 %{_libdir}/%{name}/match_value.so
 %{_libdir}/%{name}/target_notification.so
-%{_libdir}/%{name}/target_rate.so
 %{_libdir}/%{name}/target_replace.so
 %{_libdir}/%{name}/target_scale.so
 %{_libdir}/%{name}/target_set.so
