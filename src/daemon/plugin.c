@@ -366,7 +366,8 @@ static int create_register_callback(llist_t **list, /* {{{ */
   cf->cf_callback = callback;
   if (ud == NULL) {
     cf->cf_udata = (user_data_t){
-        .data = NULL, .free_func = NULL,
+        .data = NULL,
+        .free_func = NULL,
     };
   } else {
     cf->cf_udata = *ud;
@@ -646,7 +647,8 @@ static void start_read_threads(size_t num) /* {{{ */
     }
 
     char name[THREAD_NAME_MAX];
-    snprintf(name, sizeof(name), "reader#%" PRIu64, (uint64_t)read_threads_num);
+    ssnprintf(name, sizeof(name), "reader#%" PRIu64,
+              (uint64_t)read_threads_num);
     set_thread_name(read_threads[read_threads_num], name);
 
     read_threads_num++;
@@ -835,8 +837,8 @@ static void start_write_threads(size_t num) /* {{{ */
     }
 
     char name[THREAD_NAME_MAX];
-    snprintf(name, sizeof(name), "writer#%" PRIu64,
-             (uint64_t)write_threads_num);
+    ssnprintf(name, sizeof(name), "writer#%" PRIu64,
+              (uint64_t)write_threads_num);
     set_thread_name(write_threads[write_threads_num], name);
 
     write_threads_num++;
@@ -1294,8 +1296,10 @@ EXPORT int plugin_register_flush(const char *name, plugin_flush_cb callback,
         /* name      = */ flush_name,
         /* callback  = */ plugin_flush_timeout_callback,
         /* interval  = */ ctx.flush_interval,
-        /* user data = */ &(user_data_t){
-            .data = cb, .free_func = plugin_flush_timeout_callback_free,
+        /* user data = */
+        &(user_data_t){
+            .data = cb,
+            .free_func = plugin_flush_timeout_callback_free,
         });
 
     sfree(flush_name);
