@@ -32,10 +32,12 @@
 static const char *config_keys[] =
 {
 	"Filesystem",
+    "LLiteDir",
 	"IgnoreSelected"
 };
 static int config_keys_num = STATIC_ARRAY_SIZE (config_keys);
-
+#define MAX_LLITE 256
+static char llitedir[MAX_LLITE-1]=LLITEDIR;
 static ignorelist_t *llite_fs = NULL;
 
 static int llite_config (const char *key, const char *value){
@@ -47,6 +49,8 @@ static int llite_config (const char *key, const char *value){
 
 	if(strcasecmp("Filesystem",key) ==0){
 		ignorelist_add(llite_fs,value);
+	} else if (strcasecmp("LLiteDir",key) == 0){
+		strncpy(llitedir,value,MAX_LLITE);
 	} else if (strcasecmp("Ignoreselected",key) == 0){
 		int invert = 1;
 		if(IS_TRUE(value))
@@ -81,7 +85,7 @@ static int llite_process_fs(const char* fs,const char* name){
 	char fs_name[1024];
 	char bw[] = "total_bytes";
 	char ops[] = "operations";
-	snprintf(fs_name,sizeof(fs_name),"%s/%s/stats",LLITEDIR,fs);
+	snprintf(fs_name,sizeof(fs_name),"%s/%s/stats",llitedir,fs);
 	stats = fopen(fs_name, "r");
 	if (stats == NULL){
 		ERROR("llite plugin: Can't open Lustre stats '%s'", fs_name);
@@ -144,8 +148,8 @@ static int llite_read(void)
 	char *chkdir;
 	char *saveptr;
 
-	if ((dir=opendir(LLITEDIR)) == NULL){
-		ERROR ("llite plugin: Can't open %s.",LLITEDIR);
+	if ((dir=opendir(llitedir)) == NULL){
+		ERROR ("llite plugin: Can't open %s.",llitedir);
 		return (-1);
 	}
 	while ((ent = readdir(dir)) != NULL){
