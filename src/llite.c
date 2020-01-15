@@ -50,7 +50,7 @@ static int llite_config (const char *key, const char *value){
 	if(strcasecmp("Filesystem",key) ==0){
 		ignorelist_add(llite_fs,value);
 	} else if (strcasecmp("LLiteDir",key) == 0){
-		strncpy(llitedir,value,MAX_LLITE);
+		sstrncpy(llitedir,value,MAX_LLITE);
 	} else if (strcasecmp("Ignoreselected",key) == 0){
 		int invert = 1;
 		if(IS_TRUE(value))
