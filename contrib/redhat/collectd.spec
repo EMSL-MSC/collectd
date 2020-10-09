@@ -187,7 +187,6 @@
 %define with_dpdkstat 0%{!?_without_dpdkstat:0}
 # plugin grpc disabled, requires protobuf-compiler >= 3.0
 %define with_grpc 0%{!?_without_grpc:0}
-%define with_gpu_nvidia 0%{!?_without_gpu_nvidia:0}
 # plugin lpar disabled, requires AIX
 %define with_lpar 0%{!?_without_lpar:0}
 # plugin intel_pmu disabled, requires libjevents
@@ -489,16 +488,6 @@ Requires:	%{name}%{?_isa} = %{version}-%{release}
 BuildRequires:	protobuf-compiler
 %description grpc
 This plugin embeds a gRPC server into Collectd.
-%endif
-
-%if %{with_gpu_nvidia}
-%package gpu_nvidia
-Summary:    NVIDIA GPU plugin for collectd
-Group:      System Environment/Daemons
-Requires:   %{name}%{?_isa} = %{version}-%{release}
-BuildRequires:  cuda-nvml-devel
-%description gpu_nvidia
-NVIDIA GPU plugin
 %endif
 
 %if %{with_hddtemp}
@@ -1007,7 +996,7 @@ Google Stackdriver Monitoring service.
 Summary:	stackdriver plugin for collectd
 Group:		System Environment/Daemons
 Requires:	%{name}%{?_isa} = %{version}-%{release}
-BuildRequires: cuda-nvml-dev-10-1
+BuildRequires: cuda-nvml-dev-10-2
 %description gpu_nvidia
 The gpu_nvidia collectd plugin collects NVidia GPU metrics.
 %endif
@@ -2064,7 +2053,6 @@ Collectd utilities
 	%{?_with_gmond} \
 	%{?_with_gps} \
 	%{?_with_grpc} \
-    %{?_with_gpu_nvidia} \
 	%{?_with_hddtemp} \
 	%{?_with_hugepages} \
 	%{?_with_intel_pmu} \
@@ -2930,8 +2918,8 @@ fi
 %endif
 
 %if %{with_gpu_nvidia}
-%files write_gpu_nvidia
-%{_libdir}/%{name}/write_gpu_nvidia.so
+%files gpu_nvidia
+%{_libdir}/%{name}/gpu_nvidia.so
 %endif
 
 %if %{with_xencpu}
